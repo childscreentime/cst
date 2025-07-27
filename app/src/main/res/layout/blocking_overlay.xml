@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/graphic_2d_colorful_wallpaper_with_grainy_gradients"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- Background image -->
+    <ImageView
+        android:id="@+id/blocking_background_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/graphic_2d_colorful_wallpaper_with_grainy_gradients"
+        android:scaleType="centerCrop"
+        android:contentDescription="Blocking screen background" />
+
+    <!-- Central content area -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp">
+
+        <!-- Time remaining display -->
+        <TextView
+            android:id="@+id/time_remaining_display"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Time's Up!"
+            android:textColor="@color/white"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:fontFamily="serif-monospace"
+            android:shadowColor="@color/black"
+            android:shadowRadius="2"
+            android:layout_marginBottom="32dp"
+            android:gravity="center" />
+
+        <!-- Current usage info -->
+        <TextView
+            android:id="@+id/usage_info_display"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Screen time limit reached"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:fontFamily="serif-monospace"
+            android:shadowColor="@color/black"
+            android:shadowRadius="1"
+            android:layout_marginBottom="48dp"
+            android:gravity="center" />
+
+        <!-- Extension buttons -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Extend: "
+                android:textColor="@color/white"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:fontFamily="serif-monospace"
+                android:shadowColor="@color/black"
+                android:shadowRadius="1"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="16dp" />
+
+            <Button
+                android:id="@+id/button_extend_1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
+                android:minWidth="120dp"
+                android:minHeight="120dp"
+                android:text="@string/extone"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/button_extend_5"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
+                android:minWidth="120dp"
+                android:minHeight="120dp"
+                android:text="@string/small_ext"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Instructions -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ask a parent for the extension code"
+            android:textColor="#CCFFFFFF"
+            android:textSize="14sp"
+            android:fontFamily="serif-monospace"
+            android:layout_marginTop="24dp"
+            android:gravity="center" />
+    </LinearLayout>
+
+    <!-- Top overlay to prevent access to status bar -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_alignParentTop="true"
+        android:background="@color/black"
+        android:alpha="0.8" />
+
+</RelativeLayout>
