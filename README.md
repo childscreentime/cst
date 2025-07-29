@@ -35,8 +35,8 @@ A powerful, open source parental control application for Android that provides u
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/childscreentime/childscreentime.git
-   cd childscreentime
+   git clone https://github.com/childscreentime/cst.git
+   cd cst
    ```
 
 2. **Build the project**
@@ -309,9 +309,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/childscreentime/childscreentime/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/childscreentime/childscreentime/discussions)
-- **Wiki**: [Project Wiki](https://github.com/childscreentime/childscreentime/wiki)
+- **Issues**: [GitHub Issues](https://github.com/childscreentime/cst/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/childscreentime/cst/discussions)
+- **Wiki**: [Project Wiki](https://github.com/childscreentime/cst/wiki)
 
 ## 🗺️ Roadmap
 
