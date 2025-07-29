@@ -269,22 +269,23 @@ The project includes automated deployment to both GitHub Releases and Amazon App
    - Create a new app in the Appstore
    - Get your App ID from the app dashboard
 
-2. **Generate Access Token**
+2. **Create Security Profile**
    - Go to Developer Console → Security Profiles
-   - Create a new security profile or use existing
-   - Generate an access token with appropriate permissions
+   - Create a new security profile with API access
+   - Note down your Client ID and Client Secret
 
 3. **Configure GitHub Secrets**
    Add these secrets to your GitHub repository (Settings → Secrets and variables → Actions):
    ```
    AMAZON_APP_ID=your_amazon_app_id
-   AMAZON_ACCESS_TOKEN=your_amazon_access_token
-   AMAZON_EDIT_ID=your_edit_id (optional, for automatic publishing)
+   AMAZON_CLIENT_ID=your_amazon_client_id  
+   AMAZON_CLIENT_SECRET=your_amazon_client_secret
    ```
 
 4. **Trigger Deployment**
    - Create a new release on GitHub
    - The workflow will automatically build and upload to both platforms
+   - APK will be uploaded as a draft - you can publish manually from Amazon Developer Console
 
 ### Manual Release Build
 ```bash

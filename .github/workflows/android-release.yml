@@ -65,14 +65,38 @@ jobs:
         run: |
           echo "Uploading APK to Amazon Appstore..."
           
-          # Upload APK directly to Amazon Appstore
-          UPLOAD_RESPONSE=$(curl -s -X POST "https://developer.amazon.com/api/appstore/v1/applications/${AMAZON_APP_ID}/apks" \
+          # First, create a new edit (draft) for the app
+          echo "Creating new edit for app..."
+          EDIT_RESPONSE=$(curl -s -X POST "https://developer.amazon.com/api/appstore/v1/applications/${AMAZON_APP_ID}/edits" \
+            -H "Authorization: Bearer ${AMAZON_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json")
+          
+          EDIT_ID=$(echo "$EDIT_RESPONSE" | jq -r '.id // empty')
+          
+          if [ -z "$EDIT_ID" ]; then
+            echo "❌ Failed to create edit"
+            echo "Response: $EDIT_RESPONSE"
+            exit 1
+          fi
+          
+          echo "✅ Created edit with ID: $EDIT_ID"
+          
+          # Upload APK to the edit
+          echo "Uploading APK to edit..."
+          UPLOAD_RESPONSE=$(curl -s -X POST "https://developer.amazon.com/api/appstore/v1/applications/${AMAZON_APP_ID}/edits/${EDIT_ID}/apks" \
             -H "Authorization: Bearer ${AMAZON_ACCESS_TOKEN}" \
             -H "Content-Type: application/vnd.android.package-archive" \
-            --data-binary @app/build/outputs/apk/release/app-release-unsigned.apk)
+            -T app/build/outputs/apk/release/app-release-unsigned.apk)
           
-          if echo "$UPLOAD_RESPONSE" | grep -q "success\|uploaded\|200"; then
+          if echo "$UPLOAD_RESPONSE" | jq -e '.versionCode' > /dev/null 2>&1; then
             echo "✅ APK successfully uploaded to Amazon Appstore"
+            echo "Version Code: $(echo "$UPLOAD_RESPONSE" | jq -r '.versionCode')"
+            
+            # Optionally commit the edit (uncomment to auto-publish)
+            # echo "Committing edit..."
+            # curl -s -X POST "https://developer.amazon.com/api/appstore/v1/applications/${AMAZON_APP_ID}/edits/${EDIT_ID}:commit" \
+            #   -H "Authorization: Bearer ${AMAZON_ACCESS_TOKEN}"
+            
           else
             echo "❌ Failed to upload APK to Amazon Appstore"
             echo "Response: $UPLOAD_RESPONSE"
