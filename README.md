@@ -258,7 +258,35 @@ adb shell dumpsys activity services io.github.childscreentime
 
 ## 🚢 Deployment
 
-### Release Build
+### Automated Release Pipeline
+
+The project includes automated deployment to both GitHub Releases and Amazon Appstore via GitHub Actions.
+
+#### Setting up Amazon Appstore Integration
+
+1. **Get Amazon Developer Credentials**
+   - Register at [Amazon Developer Console](https://developer.amazon.com)
+   - Create a new app in the Appstore
+   - Get your App ID from the app dashboard
+
+2. **Generate Access Token**
+   - Go to Developer Console → Security Profiles
+   - Create a new security profile or use existing
+   - Generate an access token with appropriate permissions
+
+3. **Configure GitHub Secrets**
+   Add these secrets to your GitHub repository (Settings → Secrets and variables → Actions):
+   ```
+   AMAZON_APP_ID=your_amazon_app_id
+   AMAZON_ACCESS_TOKEN=your_amazon_access_token
+   AMAZON_EDIT_ID=your_edit_id (optional, for automatic publishing)
+   ```
+
+4. **Trigger Deployment**
+   - Create a new release on GitHub
+   - The workflow will automatically build and upload to both platforms
+
+### Manual Release Build
 ```bash
 ./gradlew assembleRelease
 ```
@@ -313,23 +341,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Discussions**: [GitHub Discussions](https://github.com/childscreentime/cst/discussions)
 - **Wiki**: [Project Wiki](https://github.com/childscreentime/cst/wiki)
 
-## 🗺️ Roadmap
 
-### Version 2.1
-- [ ] Enhanced battery optimization detection
-- [ ] Service restart logic improvements
-- [ ] Better permission request flow
-
-### Version 2.2
-- [ ] Usage statistics dashboard
-- [ ] Time scheduling (different limits for weekdays/weekends)
-- [ ] Multiple child profiles
-
-### Version 3.0
-- [ ] Remote management capabilities
-- [ ] Advanced blocking rules
-- [ ] App-specific time limits
-
----
-
-**⭐ If this project helps your family establish healthier digital habits, please consider giving it a star!**

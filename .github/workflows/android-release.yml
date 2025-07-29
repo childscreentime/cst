@@ -31,7 +31,47 @@ jobs:
       - name: List build outputs (debug)
         run: find app/build/outputs -name "*.apk" -type f
 
-      - name: Upload Release APK
+      - name: Generate Amazon Access Token
+        if: ${{ secrets.AMAZON_CLIENT_ID != '' }}
+        id: amazon-token
+        run: |
+          echo "Generating Amazon access token..."
+          TOKEN_RESPONSE=$(curl -s -X POST -H 'Content-Type: application/x-www-form-urlencoded' \
+            -d "grant_type=client_credentials&client_id=${{ secrets.AMAZON_CLIENT_ID }}&client_secret=${{ secrets.AMAZON_CLIENT_SECRET }}&scope=appstore::apps:readwrite" \
+            https://api.amazon.com/auth/O2/token)
+          
+          ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token // empty')
+          
+          if [ -n "$ACCESS_TOKEN" ]; then
+            echo "✅ Successfully generated access token"
+            echo "access_token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Failed to generate access token"
+            echo "Response: $TOKEN_RESPONSE"
+          fi
+
+      - name: Upload to Amazon Appstore
+        if: steps.amazon-token.outputs.access_token != ''
+        env:
+          AMAZON_APP_ID: ${{ secrets.AMAZON_APP_ID }}
+          AMAZON_ACCESS_TOKEN: ${{ steps.amazon-token.outputs.access_token }}
+        run: |
+          echo "Uploading APK to Amazon Appstore..."
+          
+          # Upload APK directly to Amazon Appstore
+          UPLOAD_RESPONSE=$(curl -s -X POST "https://developer.amazon.com/api/appstore/v1/applications/${AMAZON_APP_ID}/apks" \
+            -H "Authorization: Bearer ${AMAZON_ACCESS_TOKEN}" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary @app/build/outputs/apk/release/app-release-unsigned.apk)
+          
+          if echo "$UPLOAD_RESPONSE" | grep -q "success\|uploaded\|200"; then
+            echo "✅ APK successfully uploaded to Amazon Appstore"
+          else
+            echo "❌ Failed to upload APK to Amazon Appstore"
+            echo "Response: $UPLOAD_RESPONSE"
+          fi
+
+      - name: Upload Release APK to GitHub
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/release/app-release-unsigned.apk
