@@ -262,57 +262,7 @@ adb shell dumpsys activity services io.github.childscreentime
 
 The project includes automated deployment to both GitHub Releases and Amazon Appstore via GitHub Actions.
 
-#### Setting up Amazon Appstore Integration
 
-1. **Get Amazon Developer Credentials**
-   - Register at [Amazon Developer Console](https://developer.amazon.com)
-   - Create a new app in the Appstore
-   - Get your App ID from the app dashboard
-
-2. **Create Security Profile**
-   - Go to Developer Console → Security Profiles
-   - Create a new security profile with API access
-   - Note down your Client ID and Client Secret
-
-3. **Configure GitHub Secrets**
-   Add these secrets to your GitHub repository (Settings → Secrets and variables → Actions):
-   ```
-   AMAZON_APP_ID=your_amazon_app_id
-   AMAZON_CLIENT_ID=your_amazon_client_id  
-   AMAZON_CLIENT_SECRET=your_amazon_client_secret
-   ```
-
-4. **Trigger Deployment**
-   - Create a new release on GitHub
-   - The workflow will automatically build and upload to both platforms
-   - APK will be uploaded as a draft - you can publish manually from Amazon Developer Console
-
-### Manual Release Build
-```bash
-./gradlew assembleRelease
-```
-
-### Signing Configuration
-Add to `app/build.gradle`:
-```gradle
-android {
-    signingConfigs {
-        release {
-            storeFile file('path/to/keystore.jks')
-            storePassword 'store_password'
-            keyAlias 'key_alias'
-            keyPassword 'key_password'
-        }
-    }
-    buildTypes {
-        release {
-            signingConfig signingConfigs.release
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-}
-```
 
 ## 🤝 Contributing
 
