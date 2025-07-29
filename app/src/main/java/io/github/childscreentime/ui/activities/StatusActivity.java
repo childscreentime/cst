@@ -37,7 +37,7 @@ public class StatusActivity extends AppCompatActivity {
         TextView statusText = findViewById(R.id.statsView);
         if (statusText != null) {
             Credit credit = app.getTodayCredit();
-            String status = String.format("Current Usage: %d minutes\nCredit: %s\nBlocked: %s", 
+            String status = String.format(java.util.Locale.ROOT, "Current Usage: %d minutes\nCredit: %s\nBlocked: %s", 
                 app.duration, 
                 credit != null ? credit.asString() : "No credit",
                 app.blocked ? "YES" : "NO");

@@ -102,7 +102,7 @@ public class FirstFragment extends Fragment {
             
             // Enhanced display with debug info
             boolean hasUsageAccess = io.github.childscreentime.utils.Utils.isUsageAccessAllowed(getContext());
-            String debugInfo = String.format("Time: %d min | Credit: %s\\nUsage Access: %s | Blocked: %s", 
+            String debugInfo = String.format(java.util.Locale.ROOT, "Time: %d min | Credit: %s\\nUsage Access: %s | Blocked: %s", 
                 app.duration, credit.asString(), hasUsageAccess ? "✅" : "❌", app.blocked ? "YES" : "NO");
                 
             binding.duration.setText(debugInfo);

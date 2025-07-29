@@ -22,7 +22,7 @@ import java.text.SimpleDateFormat;
 
 public class Utils {
     public static long DAY_IN_MILLIS = 86400000;
-    private static SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
+    private static SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy", java.util.Locale.ROOT);
 
     public static int processTime(int hour, int minute, int second) {
         return (hour * 3600) + (minute * 60) + second;

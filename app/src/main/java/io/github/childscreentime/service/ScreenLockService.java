@@ -163,7 +163,10 @@ public class ScreenLockService extends Service {
         
         try {
             LayoutInflater inflater = LayoutInflater.from(this);
-            blockingView = inflater.inflate(R.layout.service_blocking_layout, null);
+            // Passing null is appropriate here as this view will be added to an overlay window
+            @SuppressWarnings("InflateParams")
+            View view = inflater.inflate(R.layout.service_blocking_layout, null);
+            blockingView = view;
             
             setupBlockingContent(blockingView);
             setupBlockingView(blockingView);
@@ -239,6 +242,8 @@ public class ScreenLockService extends Service {
         FrameLayout contentArea = targetBlockingView.findViewById(R.id.content_area);
         if (contentArea != null) {
             LayoutInflater inflater = LayoutInflater.from(this);
+            // Passing null is appropriate here as this view will be added to the contentArea FrameLayout
+            @SuppressWarnings("InflateParams")
             View firstFragmentView = inflater.inflate(R.layout.fragment_first, null);
             contentArea.addView(firstFragmentView);
             
@@ -343,7 +348,7 @@ public class ScreenLockService extends Service {
         
         Credit credit = app.getTodayCredit();
         if (credit != null) {
-            String displayText = String.format("Used: %d min | Limit: %d min\nBlocked: %s", 
+            String displayText = String.format(java.util.Locale.ROOT, "Used: %d min | Limit: %d min\nBlocked: %s", 
                 app.duration, credit.minutes, app.blocked ? "YES" : "NO");
             durationTextView.setText(displayText);
         }
@@ -604,7 +609,7 @@ public class ScreenLockService extends Service {
                       WindowManager.LayoutParams.FLAG_SECURE;
         
         params.format = PixelFormat.TRANSLUCENT;
-        params.gravity = Gravity.TOP | Gravity.LEFT;
+        params.gravity = Gravity.TOP | Gravity.START;
         params.width = WindowManager.LayoutParams.MATCH_PARENT;
         params.height = WindowManager.LayoutParams.MATCH_PARENT;
         
@@ -648,7 +653,7 @@ public class ScreenLockService extends Service {
         
         String contentText = app.blocked ? 
             "Screen is blocked - time limit exceeded" : 
-            String.format("Monitoring screen time - %d minutes used", app.duration);
+            String.format(java.util.Locale.ROOT, "Monitoring screen time - %d minutes used", app.duration);
         
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Kid Screen Lock")
