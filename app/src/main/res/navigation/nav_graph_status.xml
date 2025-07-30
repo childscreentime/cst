@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph_status"
+    app:startDestination="@id/StatusFragment">
+
+    <fragment
+        android:id="@+id/StatusFragment"
+        android:name="io.github.childscreentime.ui.fragments.StatusFragment"
+        android:label="Status"
+        tools:layout="@layout/fragment_status">
+
+        <action
+            android:id="@+id/action_StatusFragment_to_SecondFragment"
+            app:destination="@id/SecondFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/SecondFragment"
+        android:name="io.github.childscreentime.ui.fragments.SecondFragment"
+        android:label="@string/second_fragment_label"
+        tools:layout="@layout/fragment_second">
+
+        <action
+            android:id="@+id/action_SecondFragment_to_StatusFragment"
+            app:destination="@id/StatusFragment" />
+    </fragment>
+</navigation>
