@@ -29,7 +29,15 @@ public class SecondFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         binding.buttonSecond.setOnClickListener(v -> {
-            ScreenTimeApplication.getFromContext(getActivity()).exit();
+            // Stop monitoring and exit the app
+            ScreenTimeApplication app = ScreenTimeApplication.getFromContext(getActivity());
+            app.stopBackgroundMonitoring();
+            
+            // Finish the activity and exit
+            if (getActivity() != null) {
+                getActivity().finishAndRemoveTask();
+            }
+            System.exit(0);
         });
         
         binding.buttonEtendCust.setOnClickListener(v -> {

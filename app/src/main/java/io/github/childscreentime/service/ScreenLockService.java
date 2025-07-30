@@ -516,8 +516,9 @@ public class ScreenLockService extends Service {
         if (exitButton != null) {
             exitButton.setOnClickListener(v -> {
                 Log.d(TAG, "Exit button clicked");
-                app.exit();
+                app.stopBackgroundMonitoring();
                 stopSelf();
+                System.exit(0);
             });
         }
         

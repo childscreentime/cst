@@ -14,6 +14,8 @@ import androidx.fragment.app.DialogFragment;
 import androidx.navigation.fragment.NavHostFragment;
 
 import io.github.childscreentime.R;
+import io.github.childscreentime.ui.activities.MainActivity;
+import io.github.childscreentime.ui.activities.StatusActivity;
 
 import okhttp3.HttpUrl;
 
@@ -31,8 +33,21 @@ public class NoticeDialogFragment extends DialogFragment {
         builder.setMessage("Exit?").setPositiveButton("Go!", (dialog, which) -> {
             if (input.getText().toString().equals("253")) {
                 input.setText(HttpUrl.FRAGMENT_ENCODE_SET);
-                NavHostFragment.findNavController(this)
-                        .navigate(R.id.action_FirstFragment_to_SecondFragment);
+                
+                // Try to navigate - works for both MainActivity and StatusActivity now
+                try {
+                    if (getActivity() instanceof MainActivity) {
+                        // We're in MainActivity - navigate from FirstFragment to SecondFragment
+                        NavHostFragment.findNavController(this)
+                                .navigate(R.id.action_FirstFragment_to_SecondFragment);
+                    } else if (getActivity() instanceof StatusActivity) {
+                        // We're in StatusActivity - navigate from StatusFragment to SecondFragment
+                        NavHostFragment.findNavController(this)
+                                .navigate(R.id.action_StatusFragment_to_SecondFragment);
+                    }
+                } catch (Exception e) {
+                    android.util.Log.e("NoticeDialogFragment", "Navigation failed", e);
+                }
             }
         }).setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
         return builder.create();

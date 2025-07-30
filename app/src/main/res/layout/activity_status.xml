@@ -1,5 +1,6 @@
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:padding="24dp"
     android:layout_width="match_parent"
@@ -13,32 +14,21 @@
         android:text="Stats go here"
         android:paddingBottom="16dp"/>
 
-    <!-- Wrap logView in a ScrollView -->
-    <ScrollView
+    <!-- Navigation Host Fragment for fragments -->
+    <fragment
+        android:id="@+id/nav_host_fragment_status"
+        android:name="androidx.navigation.fragment.NavHostFragment"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:fillViewport="true">
+        app:defaultNavHost="true"
+        app:navGraph="@navigation/nav_graph_status" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/logView"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Log goes here"
-                android:textSize="14sp"
-                android:paddingBottom="16dp"/>
-        </LinearLayout>
-    </ScrollView>
-
-    <!-- Ensure the button is visible -->
+    <!-- Refresh Button -->
     <Button
         android:id="@+id/refreshButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="center"
         android:text="Refresh"/>
 </LinearLayout>

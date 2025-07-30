@@ -23,7 +23,6 @@ import io.github.childscreentime.model.Credit;
 import io.github.childscreentime.model.CreditPreferences;
 import io.github.childscreentime.service.ScreenLockService;
 import io.github.childscreentime.service.ScreenTimeWorker;
-import io.github.childscreentime.ui.activities.MainActivity;
 import io.github.childscreentime.utils.Utils;
 
 /**
@@ -41,7 +40,6 @@ public class ScreenTimeApplication extends Application implements SharedPreferen
     private long duration = 0;
     
     // Dependencies
-    private MainActivity mainActivity;
     private SharedPreferences sharedPreferences;
     private WorkManager workManager;
     
@@ -139,19 +137,6 @@ public class ScreenTimeApplication extends Application implements SharedPreferen
         ScreenLockService.stopService(this);
     }
     
-    public void exit() {
-        Log.d(TAG, "Exiting application");
-        
-        stopBackgroundMonitoring();
-        
-        if (mainActivity != null) {
-            mainActivity.finishAndRemoveTask();
-        }
-        
-        setRunning(false);
-        System.exit(0);
-    }
-    
     // Credit management
     public Credit getTodayCredit() {
         if (credit == null || isNewCreditDay()) {
@@ -186,12 +171,6 @@ public class ScreenTimeApplication extends Application implements SharedPreferen
     
     public CreditPreferences getTodayCreditPreferences() {
         return CreditPreferences.getTodayCreditPreferences(sharedPreferences, this);
-    }
-    
-    // Activity management
-    public void initMainActivity(MainActivity mainActivity) {
-        this.mainActivity = mainActivity;
-        Log.d(TAG, "MainActivity initialized");
     }
     
     public void registerCreditCallback(Consumer<Credit> consumer) {
