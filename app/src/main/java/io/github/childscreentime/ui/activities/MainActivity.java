@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.service.ScreenLockService;
+import io.github.childscreentime.ui.activities.StatusActivity;
 import io.github.childscreentime.utils.Utils;
 
 /**
@@ -97,9 +98,30 @@ public class MainActivity extends AppCompatActivity {
             // Store this instance so ScreenLockService can finish it when blocking ends
             blockingInstance = this;
         } else {
-            // Normal startup - finish immediately
-            Log.d(TAG, "Normal startup - service started, finishing MainActivity");
-            finish();
+            // Normal startup - check blocking state to decide what to show
+            ScreenTimeApplication currentApp = ScreenTimeApplication.getFromContext(this);
+            if (currentApp.isBlocked()) {
+                Log.d(TAG, "Device is blocked - finishing MainActivity, service will handle blocking UI");
+                finish();
+            } else {
+                Log.d(TAG, "Device is not blocked - showing StatusActivity");
+                showStatusActivity();
+                finish();
+            }
+        }
+    }
+    
+    /**
+     * Show StatusActivity when device is not blocked
+     */
+    private void showStatusActivity() {
+        try {
+            Intent statusIntent = new Intent(this, StatusActivity.class);
+            statusIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(statusIntent);
+            Log.d(TAG, "StatusActivity launched successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to launch StatusActivity", e);
         }
     }
     
