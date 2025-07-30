@@ -28,16 +28,17 @@ import io.github.childscreentime.utils.Utils;
 
 /**
  * Main application class responsible for initializing services and managing app state
+ * Thread-safe implementation for multi-threaded access
  */
 public class ScreenTimeApplication extends Application implements SharedPreferences.OnSharedPreferenceChangeListener {
     
     private static final String TAG = "ScreenTimeApplication";
     private static final String WORK_TAG = "screen_time_monitoring";
     
-    // Core app state
-    public boolean blocked = false;
-    public boolean running = false;
-    public long duration = 0;
+    // Core app state - thread-safe via synchronized methods
+    private boolean blocked = false;
+    private boolean running = false;
+    private long duration = 0;
     
     // Dependencies
     private MainActivity mainActivity;
@@ -54,8 +55,8 @@ public class ScreenTimeApplication extends Application implements SharedPreferen
     public long msgMillis;
     
     // Time tracking
-    public Utils.EventTracker interactiveEventTracker;
-    public long lastSync;
+    private Utils.EventTracker interactiveEventTracker;
+    private long lastSync;
 
     @Override
     public void onCreate() {
@@ -147,7 +148,7 @@ public class ScreenTimeApplication extends Application implements SharedPreferen
             mainActivity.finishAndRemoveTask();
         }
         
-        this.running = false;
+        setRunning(false);
         System.exit(0);
     }
     
@@ -196,6 +197,47 @@ public class ScreenTimeApplication extends Application implements SharedPreferen
     public void registerCreditCallback(Consumer<Credit> consumer) {
         this.creditCallback = consumer;
         Log.d(TAG, creditCallback != null ? "Credit callback registered" : "Credit callback cleared");
+    }
+    
+    // Thread-safe accessors
+    public synchronized boolean isBlocked() {
+        return blocked;
+    }
+    
+    public synchronized void setBlocked(boolean blocked) {
+        this.blocked = blocked;
+    }
+    
+    public synchronized boolean isRunning() {
+        return running;
+    }
+    
+    public synchronized void setRunning(boolean running) {
+        this.running = running;
+    }
+    
+    public synchronized long getDuration() {
+        return duration;
+    }
+    
+    public synchronized void setDuration(long duration) {
+        this.duration = duration;
+    }
+    
+    public synchronized Utils.EventTracker getInteractiveEventTracker() {
+        return interactiveEventTracker;
+    }
+    
+    public synchronized void setInteractiveEventTracker(Utils.EventTracker tracker) {
+        this.interactiveEventTracker = tracker;
+    }
+    
+    public synchronized long getLastSync() {
+        return lastSync;
+    }
+    
+    public synchronized void setLastSync(long lastSync) {
+        this.lastSync = lastSync;
     }
     
     // Static helper methods

@@ -107,7 +107,7 @@ public class ScreenLockService extends Service {
     public void updateBlockingOverlay() {
         // Always get the current app state to ensure we have the latest blocking status
         ScreenTimeApplication currentApp = ScreenTimeApplication.getFromContext(this);
-        boolean shouldBlock = currentApp.blocked;
+        boolean shouldBlock = currentApp.isBlocked();
         
         Log.d(TAG, "updateBlockingOverlay - shouldBlock: " + shouldBlock + ", isShowingBlockingView: " + isShowingBlockingView);
         
@@ -349,7 +349,7 @@ public class ScreenLockService extends Service {
         Credit credit = app.getTodayCredit();
         if (credit != null) {
             String displayText = String.format(java.util.Locale.ROOT, "Used: %d min | Limit: %d min\nBlocked: %s", 
-                app.duration, credit.minutes, app.blocked ? "YES" : "NO");
+                app.getDuration(), credit.minutes, app.isBlocked() ? "YES" : "NO");
             durationTextView.setText(displayText);
         }
     }
@@ -651,9 +651,9 @@ public class ScreenLockService extends Service {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0
         );
         
-        String contentText = app.blocked ? 
+        String contentText = app.isBlocked() ? 
             "Screen is blocked - time limit exceeded" : 
-            String.format(java.util.Locale.ROOT, "Monitoring screen time - %d minutes used", app.duration);
+            String.format(java.util.Locale.ROOT, "Monitoring screen time - %d minutes used", app.getDuration());
         
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Kid Screen Lock")
@@ -712,13 +712,13 @@ public class ScreenLockService extends Service {
                                 return;
                             }
                             
-                            long remainingMinutes = credit.minutes - app.duration;
+                            long remainingMinutes = credit.minutes - app.getDuration();
                             Log.d(TAG, "=== Background Periodic Check === (Remaining: " + remainingMinutes + " min, Screen: ON)");
                             
                             // Update blocking state in background
-                            boolean wasBlocked = app.blocked;
+                            boolean wasBlocked = app.isBlocked();
                             TimeManager.updateBlockedState(ScreenLockService.this);
-                            boolean isNowBlocked = app.blocked;
+                            boolean isNowBlocked = app.isBlocked();
                             
                             // Only update UI on main thread if state changed
                             if (wasBlocked != isNowBlocked) {
@@ -789,10 +789,10 @@ public class ScreenLockService extends Service {
             Credit credit = app.getTodayCredit();
             if (credit == null) return 30000; // 30 seconds fallback
             
-            long remainingMinutes = credit.minutes - app.duration;
+            long remainingMinutes = credit.minutes - app.getDuration();
             
             // If already blocked, check less frequently since WorkManager handles most monitoring
-            if (app.blocked) {
+            if (app.isBlocked()) {
                 return 600000; // 10 minutes when blocked (reduced frequency for performance)
             }
             

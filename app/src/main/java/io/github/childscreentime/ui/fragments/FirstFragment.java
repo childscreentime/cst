@@ -103,21 +103,22 @@ public class FirstFragment extends Fragment {
             // Enhanced display with debug info
             boolean hasUsageAccess = io.github.childscreentime.utils.Utils.isUsageAccessAllowed(getContext());
             String debugInfo = String.format(java.util.Locale.ROOT, "Time: %d min | Credit: %s\\nUsage Access: %s | Blocked: %s", 
-                app.duration, credit.asString(), hasUsageAccess ? "✅" : "❌", app.blocked ? "YES" : "NO");
+                app.getDuration(), credit.asString(), hasUsageAccess ? "✅" : "❌", app.isBlocked() ? "YES" : "NO");
                 
             binding.duration.setText(debugInfo);
             
             // Log detailed info for debugging
             android.util.Log.d("FirstFragment", "=== UI Update ===");
-            android.util.Log.d("FirstFragment", "Duration: " + app.duration + " minutes");
+            android.util.Log.d("FirstFragment", "Duration: " + app.getDuration() + " minutes");
             android.util.Log.d("FirstFragment", "Credit: " + credit.asString());
-            android.util.Log.d("FirstFragment", "Blocked: " + app.blocked);
+            android.util.Log.d("FirstFragment", "Blocked: " + app.isBlocked());
             android.util.Log.d("FirstFragment", "Usage Access: " + hasUsageAccess);
             
-            if (app.interactiveEventTracker != null) {
-                android.util.Log.d("FirstFragment", "EventTracker - Count: " + app.interactiveEventTracker.count + 
-                    ", Duration: " + app.interactiveEventTracker.duration + "ms" +
-                    ", CurStart: " + app.interactiveEventTracker.curStartTime);
+            Utils.EventTracker tracker = app.getInteractiveEventTracker();
+            if (tracker != null) {
+                android.util.Log.d("FirstFragment", "EventTracker - Count: " + tracker.count + 
+                    ", Duration: " + tracker.duration + "ms" +
+                    ", CurStart: " + tracker.curStartTime);
             }
         } catch (Exception e) {
             android.util.Log.e("FirstFragment", "Error updating UI in setButtonVisibility", e);

@@ -34,11 +34,11 @@ public class ScreenTimeWorker extends Worker {
             ScreenTimeApplication app = ScreenTimeApplication.getFromContext(context);
             
             // Update blocking state and get the result
-            boolean wasBlocked = app.blocked;
+            boolean wasBlocked = app.isBlocked();
             Log.d(TAG, "Before updateBlockedState - wasBlocked: " + wasBlocked);
             
             TimeManager.updateBlockedState(context);
-            boolean isNowBlocked = app.blocked;
+            boolean isNowBlocked = app.isBlocked();
             
             Log.d(TAG, "After updateBlockedState - isNowBlocked: " + isNowBlocked);
             
@@ -46,7 +46,7 @@ public class ScreenTimeWorker extends Worker {
             if (!isNowBlocked) {
                 Credit credit = app.getTodayCredit();
                 if (credit != null) {
-                    long remainingMinutes = credit.minutes - app.duration;
+                    long remainingMinutes = credit.minutes - app.getDuration();
                     if (remainingMinutes <= 15) {
                         Log.d(TAG, "Approaching limit (" + remainingMinutes + " min remaining) - triggering foreground service active monitoring");
                         // This will cause the foreground service to switch to more frequent checking

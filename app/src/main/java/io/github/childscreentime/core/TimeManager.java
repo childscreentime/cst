@@ -35,7 +35,7 @@ public class TimeManager {
     public static boolean updateBlockedState(Context context) {
         Log.d(TAG, "=== updateBlockedState called ===");
         ScreenTimeApplication app = ScreenTimeApplication.getFromContext(context);
-        boolean wasBlocked = app.blocked;
+        boolean wasBlocked = app.isBlocked();
         
         // Get current credit and usage
         Credit credit = app.getTodayCredit();
@@ -45,14 +45,14 @@ public class TimeManager {
         }
         
         long durationMinutes = Utils.millisToMinutes(updateInteractiveEventTracker(context));
-        app.duration = durationMinutes;
+        app.setDuration(durationMinutes);
         
         Log.d(TAG, String.format("=== BLOCKING STATE CHECK === Usage: %d minutes, Credit: %d minutes", 
             durationMinutes, credit.minutes));
         
         // Determine if should block
         boolean shouldBlock = durationMinutes >= credit.minutes;
-        app.blocked = shouldBlock;
+        app.setBlocked(shouldBlock);
         
         Log.d(TAG, "Should block: " + shouldBlock + " (was: " + wasBlocked + ")");
         
@@ -80,7 +80,7 @@ public class TimeManager {
         // Sync to server if needed
         syncIfNeeded(context, app, wasBlocked != shouldBlock);
         
-        return wasBlocked != app.blocked;
+        return wasBlocked != app.isBlocked();
     }
     
     /**
@@ -106,11 +106,11 @@ public class TimeManager {
                 return;
             }
             
-            Log.d(TAG, "Before extension - Credit: " + credit.minutes + " minutes, Blocked: " + app.blocked);
+            Log.d(TAG, "Before extension - Credit: " + credit.minutes + " minutes, Blocked: " + app.isBlocked());
             
             // Get current usage
             long durationMinutes = Utils.millisToMinutes(updateInteractiveEventTracker(context));
-            app.duration = durationMinutes;
+            app.setDuration(durationMinutes);
             
             Log.d(TAG, "Current usage: " + durationMinutes + " minutes");
             
@@ -123,7 +123,7 @@ public class TimeManager {
                 newCreditMinutes, durationMinutes, extendMinutes));
             
             // Update state
-            app.blocked = false;
+            app.setBlocked(false);
             notifyScreenLockService(context);
             
             // Reset notification tracking so warnings can be shown again after extension
@@ -139,7 +139,7 @@ public class TimeManager {
                 extensionInProgress = false; // Reset flag after delay
             }, 500); // 500ms delay
             
-            Log.d(TAG, "After extension - Blocked: " + app.blocked + ", Duration: " + app.duration + ", Credit: " + credit.minutes);
+            Log.d(TAG, "After extension - Blocked: " + app.isBlocked() + ", Duration: " + app.getDuration() + ", Credit: " + credit.minutes);
             Log.d(TAG, "=== DIRECT TIME EXTENSION END ===");
         } catch (Exception e) {
             Log.e(TAG, "Error during direct time extension", e);
@@ -189,7 +189,7 @@ public class TimeManager {
             credit.minutes = newCreditMinutes;
             app.getTodayCreditPreferences().save(credit);
             
-            app.blocked = false;
+            app.setBlocked(false);
             notifyScreenLockService(context);
             
             // Reset notification tracking so warnings can be shown again after extension
@@ -220,24 +220,26 @@ public class TimeManager {
         long beginTime = Utils.getTodayAsMillis();
         long currentMillis = Calendar.getInstance().getTimeInMillis();
         
-        // Initialize tracker if needed
-        if (app.interactiveEventTracker == null || beginTime > app.interactiveEventTracker.endStepTimeStamp) {
-            app.interactiveEventTracker = new Utils.EventTracker();
-            app.interactiveEventTracker.endStepTimeStamp = beginTime;
+        // Initialize tracker if needed - thread-safe access
+        Utils.EventTracker tracker = app.getInteractiveEventTracker();
+        if (tracker == null || beginTime > tracker.endStepTimeStamp) {
+            tracker = new Utils.EventTracker();
+            tracker.endStepTimeStamp = beginTime;
+            app.setInteractiveEventTracker(tracker);
             Log.d(TAG, "Initialized new EventTracker for today");
         }
         
         try {
             Utils.updateInteractiveEventTracker(
-                app.interactiveEventTracker, 
+                tracker, 
                 context, 
-                app.interactiveEventTracker.endStepTimeStamp, 
+                tracker.endStepTimeStamp, 
                 currentMillis
             );
             
             // Fix for screen state tracking: After processing events, check if screen is currently on
             // and ensure we're tracking current interactive time properly
-            Utils.ensureCurrentScreenStateTracked(app.interactiveEventTracker, context, currentMillis);
+            Utils.ensureCurrentScreenStateTracked(tracker, context, currentMillis);
             
         } catch (Exception e) {
             Log.e(TAG, "Error updating interactive event tracker", e);
@@ -246,20 +248,20 @@ public class TimeManager {
         
         // Calculate total duration
         long totalDuration;
-        if (app.interactiveEventTracker.curStartTime != 0) {
-            totalDuration = app.interactiveEventTracker.duration + 
-                           (currentMillis - app.interactiveEventTracker.curStartTime);
+        if (tracker.curStartTime != 0) {
+            totalDuration = tracker.duration + 
+                           (currentMillis - tracker.curStartTime);
         } else {
-            totalDuration = app.interactiveEventTracker.duration;
+            totalDuration = tracker.duration;
         }
         
-        app.interactiveEventTracker.endStepTimeStamp = currentMillis;
+        tracker.endStepTimeStamp = currentMillis;
         
         // Debug logging for usage tracking
         long durationMinutes = Utils.millisToMinutes(totalDuration);
         Log.d(TAG, "Usage tracking update: duration=" + durationMinutes + "min (" + totalDuration + "ms), " +
-              "curStartTime=" + app.interactiveEventTracker.curStartTime + ", " +
-              "storedDuration=" + app.interactiveEventTracker.duration + "ms");
+              "curStartTime=" + tracker.curStartTime + ", " +
+              "storedDuration=" + tracker.duration + "ms");
         
         return totalDuration;
     }
@@ -282,12 +284,13 @@ public class TimeManager {
     
     private static void syncIfNeeded(Context context, ScreenTimeApplication app, boolean stateChanged) {
         long currentTime = Calendar.getInstance().getTimeInMillis();
-        boolean shouldSync = app.lastSync == 0 || 
-                           Utils.millisToMinutes(currentTime - app.lastSync) >= SYNC_INTERVAL_MINUTES || 
+        long lastSync = app.getLastSync();
+        boolean shouldSync = lastSync == 0 || 
+                           Utils.millisToMinutes(currentTime - lastSync) >= SYNC_INTERVAL_MINUTES || 
                            stateChanged;
                            
         if (shouldSync) {
-            app.lastSync = currentTime;
+            app.setLastSync(currentTime);
             // Move server sync to separate class
             Log.d(TAG, "Should sync to server");
         }

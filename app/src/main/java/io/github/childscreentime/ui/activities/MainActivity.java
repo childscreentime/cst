@@ -74,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
         
         // Initialize app
         ScreenTimeApplication app = ScreenTimeApplication.getFromContext(this);
-        app.running = true;
+        app.setRunning(true);
         app.initMainActivity(this);
         
         // Check overlay permission
