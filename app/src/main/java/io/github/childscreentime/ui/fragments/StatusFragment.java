@@ -98,7 +98,7 @@ public class StatusFragment extends Fragment {
     
     private String getEventTrackerInfo(ScreenTimeApplication app) {
         try {
-            var tracker = app.getInteractiveEventTracker();
+            Utils.EventTracker tracker = app.getInteractiveEventTracker();
             if (tracker != null) {
                 return String.format(java.util.Locale.ROOT, 
                     "Count: %d, Duration: %dms", tracker.count, tracker.duration);
