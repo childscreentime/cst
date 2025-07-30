@@ -26,34 +26,37 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static MainActivity blockingInstance = null;
     
-    // Modern Activity Result API
+    // Modern Activity Result API for usage access permission
     private final ActivityResultLauncher<Intent> usageAccessLauncher = registerForActivityResult(
         new ActivityResultContracts.StartActivityForResult(),
         result -> {
+            Log.d(TAG, "Returned from usage access settings");
+            
             if (Utils.isUsageAccessAllowed(this)) {
-                Log.i(TAG, "Usage access permission granted - continuing with app initialization");
+                Log.i(TAG, "✅ Usage access permission granted - starting app");
                 initializeApp();
             } else {
-                Log.e(TAG, "Usage access permission denied - cannot continue");
-                exitWithError("Usage Access permission is required. Child Screen Time cannot function without it.");
+                Log.e(TAG, "❌ Usage access permission denied - app cannot function");
+                exitWithError("Usage Access permission is required. Child Screen Time cannot function without accurate time tracking.");
             }
         }
     );
 
-    @Override
+        @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(io.github.childscreentime.R.layout.activity_launcher);
         
-        Log.d(TAG, "MainActivity started - checking permissions");
+        Log.d(TAG, "MainActivity started - checking critical permissions");
         
-        // CRITICAL: Check usage access permission first
+        // CRITICAL: Check usage access permission first - app cannot function without it
         if (!Utils.isUsageAccessAllowed(this)) {
-            Log.e(TAG, "Usage access permission not granted - requesting permission");
+            Log.w(TAG, "Usage access permission not granted - requesting permission");
             requestUsageAccessPermission();
-            return; // Stop here until permission is granted
+            return; // Stop here - don't start any services or monitoring
         }
         
+        Log.i(TAG, "Usage access permission confirmed - starting app");
         initializeApp();
     }
     

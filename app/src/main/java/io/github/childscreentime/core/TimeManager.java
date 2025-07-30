@@ -30,30 +30,12 @@ public class TimeManager {
     
     /**
      * Update the blocked state based on current usage and credit
+     * NOTE: This method assumes usage access permission is already granted
      */
     public static boolean updateBlockedState(Context context) {
         Log.d(TAG, "=== updateBlockedState called ===");
         ScreenTimeApplication app = ScreenTimeApplication.getFromContext(context);
         boolean wasBlocked = app.blocked;
-        
-        // Check usage access permission - this is REQUIRED
-        if (!Utils.isUsageAccessAllowed(context)) {
-            Log.e(TAG, "CRITICAL ERROR: Usage access permission not granted!");
-            Log.e(TAG, "App cannot function without usage access - requesting permission again");
-            
-            // Don't block the user - instead ask for permission again
-            app.blocked = false; // Ensure we don't block while waiting for permission
-            app.running = false; // Stop monitoring until permission is granted
-            
-            // Restart MainActivity to handle permission request
-            android.content.Intent intent = new android.content.Intent(context, 
-                io.github.childscreentime.ui.activities.MainActivity.class);
-            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | 
-                           android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            context.startActivity(intent);
-            
-            return wasBlocked != app.blocked;
-        }
         
         // Get current credit and usage
         Credit credit = app.getTodayCredit();
@@ -257,9 +239,6 @@ public class TimeManager {
             // and ensure we're tracking current interactive time properly
             Utils.ensureCurrentScreenStateTracked(app.interactiveEventTracker, context, currentMillis);
             
-        } catch (SecurityException e) {
-            Log.e(TAG, "SecurityException: Usage access permission denied", e);
-            return 0;
         } catch (Exception e) {
             Log.e(TAG, "Error updating interactive event tracker", e);
             return 0;
