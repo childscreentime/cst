@@ -24,13 +24,27 @@
 
     </ScrollView>
 
-    <!-- Refresh Button -->
-    <Button
-        android:id="@+id/refreshButton"
-        android:layout_width="wrap_content"
+    <!-- Button Row with Refresh and Settings -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
         android:layout_marginTop="16dp"
-        android:text="Refresh" />
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/refreshButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="Refresh" />
+
+        <Button
+            android:id="@+id/settingsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Settings" />
+
+    </LinearLayout>
 
 </LinearLayout>

@@ -20,7 +20,6 @@ import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.databinding.FragmentStatusBinding;
 import io.github.childscreentime.model.Credit;
-import io.github.childscreentime.ui.dialog.NoticeDialogFragment;
 import io.github.childscreentime.utils.Utils;
 
 /**
@@ -67,6 +66,15 @@ public class StatusFragment extends Fragment {
         View refreshButton = binding.getRoot().findViewById(R.id.refreshButton);
         if (refreshButton != null) {
             refreshButton.setOnClickListener(v -> refreshStatus());
+        }
+        
+        // Set up settings button for admin access
+        View settingsButton = binding.getRoot().findViewById(R.id.settingsButton);
+        if (settingsButton != null) {
+            settingsButton.setOnClickListener(v -> {
+                Log.d(TAG, "Settings button clicked - opening admin dialog");
+                new NoticeDialogFragment().show(getParentFragmentManager(), "NoticeDialogFragment");
+            });
         }
     }
 
