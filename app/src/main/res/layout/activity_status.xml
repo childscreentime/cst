@@ -24,11 +24,4 @@
         app:defaultNavHost="true"
         app:navGraph="@navigation/nav_graph_status" />
 
-    <!-- Refresh Button -->
-    <Button
-        android:id="@+id/refreshButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="Refresh"/>
 </LinearLayout>

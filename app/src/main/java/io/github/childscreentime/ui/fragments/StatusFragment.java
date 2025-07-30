@@ -20,6 +20,7 @@ import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.databinding.FragmentStatusBinding;
 import io.github.childscreentime.model.Credit;
+import io.github.childscreentime.ui.dialog.NoticeDialogFragment;
 import io.github.childscreentime.utils.Utils;
 
 /**
@@ -36,6 +37,7 @@ public class StatusFragment extends Fragment {
         return binding.getRoot();
     }
 
+    @Override
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
@@ -61,9 +63,10 @@ public class StatusFragment extends Fragment {
         // Load initial status
         refreshStatus();
         
-        // Set up refresh button if it exists in parent activity
-        if (getActivity() != null) {
-            getActivity().findViewById(R.id.refreshButton).setOnClickListener(v -> refreshStatus());
+        // Set up refresh button in fragment layout
+        View refreshButton = binding.getRoot().findViewById(R.id.refreshButton);
+        if (refreshButton != null) {
+            refreshButton.setOnClickListener(v -> refreshStatus());
         }
     }
 
