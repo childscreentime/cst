@@ -8,20 +8,19 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.core.view.MenuHost;
 import androidx.core.view.MenuProvider;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Lifecycle;
-import androidx.lifecycle.ViewModelProvider;
 
 import io.github.childscreentime.R;
 import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.databinding.FragmentStatusBinding;
 import io.github.childscreentime.model.Credit;
+import io.github.childscreentime.utils.Utils;
 
 /**
  * Fragment that shows the status information with admin access

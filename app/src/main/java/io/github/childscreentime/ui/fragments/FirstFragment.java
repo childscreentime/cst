@@ -19,6 +19,7 @@ import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.databinding.FragmentFirstBinding;
 import io.github.childscreentime.model.Credit;
+import io.github.childscreentime.utils.Utils;
 
 /**
  * First fragment showing screen time status and extension buttons
