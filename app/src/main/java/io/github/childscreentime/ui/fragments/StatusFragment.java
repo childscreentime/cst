@@ -20,6 +20,7 @@ import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.databinding.FragmentStatusBinding;
 import io.github.childscreentime.model.Credit;
+import io.github.childscreentime.utils.AdminPasswordDialog;
 import io.github.childscreentime.utils.Utils;
 
 /**
@@ -52,7 +53,7 @@ public class StatusFragment extends Fragment {
             public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
                 if (menuItem.getItemId() == R.id.action_settings) {
                     Log.d(TAG, "Admin settings menu clicked from StatusFragment");
-                    new NoticeDialogFragment().show(getParentFragmentManager(), "NoticeDialogFragment");
+                    AdminPasswordDialog.showPasswordDialog(StatusFragment.this, R.id.action_StatusFragment_to_SecondFragment);
                     return true;
                 }
                 return false;
@@ -73,7 +74,7 @@ public class StatusFragment extends Fragment {
         if (settingsButton != null) {
             settingsButton.setOnClickListener(v -> {
                 Log.d(TAG, "Settings button clicked - opening admin dialog");
-                new NoticeDialogFragment().show(getParentFragmentManager(), "NoticeDialogFragment");
+                AdminPasswordDialog.showPasswordDialog(StatusFragment.this, R.id.action_StatusFragment_to_SecondFragment);
             });
         }
     }

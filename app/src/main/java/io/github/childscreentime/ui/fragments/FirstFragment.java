@@ -19,6 +19,7 @@ import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.databinding.FragmentFirstBinding;
 import io.github.childscreentime.model.Credit;
+import io.github.childscreentime.utils.AdminPasswordDialog;
 import io.github.childscreentime.utils.Utils;
 
 /**
@@ -70,7 +71,7 @@ public class FirstFragment extends Fragment {
                 @Override
                 public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
                     if (menuItem.getItemId() == R.id.action_settings) {
-                        new NoticeDialogFragment().show(getActivity().getSupportFragmentManager(), "NoticeDialogFragment");
+                        AdminPasswordDialog.showPasswordDialog(FirstFragment.this, R.id.action_FirstFragment_to_SecondFragment);
                     }
                     return true;
                 }
