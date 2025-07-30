@@ -8,11 +8,15 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
+import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.service.ScreenLockService;
+import io.github.childscreentime.utils.Utils;
 
 /**
  * Minimal launcher activity - immediately starts service and finishes
@@ -21,13 +25,40 @@ import io.github.childscreentime.service.ScreenLockService;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static MainActivity blockingInstance = null;
+    
+    // Modern Activity Result API
+    private final ActivityResultLauncher<Intent> usageAccessLauncher = registerForActivityResult(
+        new ActivityResultContracts.StartActivityForResult(),
+        result -> {
+            if (Utils.isUsageAccessAllowed(this)) {
+                Log.i(TAG, "Usage access permission granted - continuing with app initialization");
+                initializeApp();
+            } else {
+                Log.e(TAG, "Usage access permission denied - cannot continue");
+                exitWithError("Usage Access permission is required. Child Screen Time cannot function without it.");
+            }
+        }
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(io.github.childscreentime.R.layout.activity_launcher);
         
-        Log.d(TAG, "MainActivity started - initializing service");
+        Log.d(TAG, "MainActivity started - checking permissions");
+        
+        // CRITICAL: Check usage access permission first
+        if (!Utils.isUsageAccessAllowed(this)) {
+            Log.e(TAG, "Usage access permission not granted - requesting permission");
+            requestUsageAccessPermission();
+            return; // Stop here until permission is granted
+        }
+        
+        initializeApp();
+    }
+    
+    private void initializeApp() {
+        Log.d(TAG, "Initializing app with required permissions");
         
         // Request exact alarm permission for Android 12+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -68,6 +99,35 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "Normal startup - service started, finishing MainActivity");
             finish();
         }
+    }
+    
+    /**
+     * Request usage access permission
+     */
+    private void requestUsageAccessPermission() {
+        Toast.makeText(this, "Usage Access permission is required for Child Screen Time to function properly", Toast.LENGTH_LONG).show();
+        
+        Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+        try {
+            usageAccessLauncher.launch(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open usage access settings", e);
+            exitWithError("Cannot open usage access settings. Please grant Usage Access permission manually in Settings → Special access → Usage access");
+        }
+    }
+    
+    /**
+     * Exit the app with an error message
+     */
+    private void exitWithError(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        Log.e(TAG, "Exiting app: " + message);
+        
+        // Give user time to read the message
+        new android.os.Handler(getMainLooper()).postDelayed(() -> {
+            finishAndRemoveTask();
+            System.exit(1);
+        }, 3000);
     }
     
     /**

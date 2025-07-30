@@ -29,7 +29,7 @@ A powerful, open source parental control application for Android that provides u
 ### Prerequisites
 - Android 9.0 (API level 28) or higher
 - Android Studio Arctic Fox or later
-- Gradle 7.0+
+- Gradle 8.0+
 
 ### Installation
 
@@ -52,7 +52,8 @@ A powerful, open source parental control application for Android that provides u
 ### First Time Setup
 
 1. **Grant Required Permissions**
-   - Usage Access (Settings → Special access → Usage access)
+   - **Usage Access (CRITICAL)**: Settings → Special access → Usage access → Child Screen Time → Enable
+     - *App will not function without this permission and will exit if denied*
    - System Alert Window (Settings → Special access → Display over other apps)
    - Device Administrator (Settings → Security → Device admin apps)
 
@@ -217,9 +218,14 @@ private void setupPeriodicChecks()
 - Verify service is running in foreground
 
 **Usage tracking shows 0 minutes**
-- Grant Usage Access permission
+- Grant Usage Access permission (required for app to function)
 - Restart the app after permission grant
-- Check if device has usage access restrictions
+- If permission is denied, app will exit with error message
+
+**App won't start or exits immediately**
+- Check if Usage Access permission is granted
+- Go to Settings → Special access → Usage access → Child Screen Time → Enable
+- App requires this permission and cannot function without it
 
 ### Debug Logging
 
@@ -284,7 +290,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Android Open Source Project for core platform capabilities
 - WorkManager library for background task management
-- All contributors who help improve this project
 
 ## 📞 Support
 

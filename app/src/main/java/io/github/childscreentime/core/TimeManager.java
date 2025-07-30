@@ -36,10 +36,23 @@ public class TimeManager {
         ScreenTimeApplication app = ScreenTimeApplication.getFromContext(context);
         boolean wasBlocked = app.blocked;
         
-        // Check usage access permission
+        // Check usage access permission - this is REQUIRED
         if (!Utils.isUsageAccessAllowed(context)) {
-            Log.w(TAG, "Usage access not allowed - using fallback tracking");
-            return handleNoUsageAccess(app, wasBlocked);
+            Log.e(TAG, "CRITICAL ERROR: Usage access permission not granted!");
+            Log.e(TAG, "App cannot function without usage access - requesting permission again");
+            
+            // Don't block the user - instead ask for permission again
+            app.blocked = false; // Ensure we don't block while waiting for permission
+            app.running = false; // Stop monitoring until permission is granted
+            
+            // Restart MainActivity to handle permission request
+            android.content.Intent intent = new android.content.Intent(context, 
+                io.github.childscreentime.ui.activities.MainActivity.class);
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | 
+                           android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            context.startActivity(intent);
+            
+            return wasBlocked != app.blocked;
         }
         
         // Get current credit and usage
@@ -217,25 +230,6 @@ public class TimeManager {
             extensionInProgress = false; // Reset flag on error
             return false;
         }
-    }
-    
-    private static boolean handleNoUsageAccess(ScreenTimeApplication app, boolean wasBlocked) {
-        long currentTimeMillis = System.currentTimeMillis();
-        if (app.lastSync == 0) {
-            app.lastSync = currentTimeMillis;
-            app.duration = 0;
-        } else {
-            long timeSinceLastCheck = currentTimeMillis - app.lastSync;
-            app.duration += Utils.millisToMinutes(timeSinceLastCheck / 2);
-        }
-        
-        Credit credit = app.getTodayCredit();
-        if (credit != null && app.duration >= credit.minutes) {
-            app.blocked = true;
-            Log.w(TAG, "Blocking based on estimated time (no usage permission)");
-        }
-        
-        return wasBlocked != app.blocked;
     }
     
     private static long updateInteractiveEventTracker(Context context) {
