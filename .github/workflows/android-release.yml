@@ -3,6 +3,17 @@ name: Build APK on Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version increment type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
 
 permissions:
   contents: write
@@ -14,6 +25,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -22,8 +36,94 @@ jobs:
           java-version: '21'
           cache: gradle
 
+      - name: Get current version and increment
+        id: version
+        run: |
+          VERSION_CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' app/build.gradle.kts)
+          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          
+          echo "Current version: $VERSION_NAME (code: $VERSION_CODE)"
+          
+          # Extract version parts
+          IFS='.' read -ra VERSION_PARTS <<< "$VERSION_NAME"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]:-0}
+          PATCH=${VERSION_PARTS[2]:-0}
+          
+          # Increment based on type (from manual input or default to patch)
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION_TYPE="${{ github.event.inputs.version_type }}"
+          else
+            VERSION_TYPE="patch"
+          fi
+          
+          case $VERSION_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          NEW_CODE=$((VERSION_CODE + 1))
+          
+          echo "New version: $NEW_VERSION (code: $NEW_CODE)"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "new_code=$NEW_CODE" >> $GITHUB_OUTPUT
+
+      - name: Update version in build.gradle.kts
+        run: |
+          sed -i 's/versionCode = [0-9]*/versionCode = ${{ steps.version.outputs.new_code }}/' app/build.gradle.kts
+          sed -i 's/versionName = "[^"]*"/versionName = "${{ steps.version.outputs.new_version }}"/' app/build.gradle.kts
+
+      - name: Update version in AndroidManifest.xml
+        run: |
+          python3 << 'EOF'
+          import xml.etree.ElementTree as ET
+          import sys
+          
+          # Parse the AndroidManifest.xml
+          tree = ET.parse('app/src/main/AndroidManifest.xml')
+          root = tree.getroot()
+          
+          # Update version attributes
+          root.set('android:versionCode', '${{ steps.version.outputs.new_code }}')
+          root.set('android:versionName', '${{ steps.version.outputs.new_version }}')
+          
+          # Write back with proper XML declaration
+          tree.write('app/src/main/AndroidManifest.xml', encoding='utf-8', xml_declaration=True)
+          print(f"✅ Updated AndroidManifest.xml to version ${{ steps.version.outputs.new_version }} (code ${{ steps.version.outputs.new_code }})")
+          EOF
+
+      - name: Commit version bump
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add app/build.gradle.kts app/src/main/AndroidManifest.xml
+          git commit -m "Bump version to ${{ steps.version.outputs.new_version }} (code ${{ steps.version.outputs.new_code }})" || exit 0
+          git push || exit 0
+
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
+
+      - name: Validate AndroidManifest.xml
+        run: |
+          echo "Validating AndroidManifest.xml structure..."
+          if ! python3 -c "import xml.etree.ElementTree as ET; ET.parse('app/src/main/AndroidManifest.xml')"; then
+            echo "❌ AndroidManifest.xml is not valid XML"
+            echo "Content:"
+            cat app/src/main/AndroidManifest.xml
+            exit 1
+          fi
+          echo "✅ AndroidManifest.xml is valid"
 
       - name: Build Release APK
         run: ./gradlew assembleRelease
@@ -106,5 +206,22 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/release/app-release-unsigned.apk
+          name: "Child Screen Time v${{ steps.version.outputs.new_version }}"
+          body: |
+            ## Child Screen Time v${{ steps.version.outputs.new_version }}
+            
+            ### Version Info
+            - Version Code: ${{ steps.version.outputs.new_code }}
+            - Version Name: ${{ steps.version.outputs.new_version }}
+            - Compatible with: Android 9+ (API 28+)
+            - Optimized for: Fire HD tablets
+            
+            ### Installation
+            1. Download the APK file below
+            2. On Fire HD tablets: Enable "Apps from Unknown Sources" in Settings
+            3. Install the APK file directly
+            
+            ### Amazon Appstore
+            This version has been automatically uploaded to Amazon Appstore for review.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
