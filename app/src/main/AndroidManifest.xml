@@ -64,7 +64,7 @@
             android:exported="true">
             <meta-data
                 android:name="android.app.device_admin"
-                resource="@xml/device_admin_policies" />
+                android:resource="@xml/device_admin_policies" />
 
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
