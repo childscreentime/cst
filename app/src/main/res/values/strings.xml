@@ -1,6 +1,13 @@
 <resources>
     <string name="app_name">Child Screen Time</string>
     <string name="action_settings">Settings</string>
+    
+    <!-- Permission related strings -->
+    <string name="overlay_permission_title">Permission Required</string>
+    <string name="overlay_permission_message">Child Screen Time needs \"Show over other apps\" permission to block the screen when time limits are reached.\n\nThis permission allows the app to display the blocking screen over all other applications.\n\nPlease tap \"Allow\" on the next screen to grant this essential permission.</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="exit_app">Exit App</string>
+    
     <!-- Strings used for fragments for navigation -->
     <string name="second_fragment_label">Settings</string>
     <string name="next">Next</string>

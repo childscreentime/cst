@@ -2,6 +2,7 @@ package io.github.childscreentime.ui.activities;
 
 import android.annotation.SuppressLint;
 import android.app.AlarmManager;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
@@ -27,6 +28,22 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static MainActivity blockingInstance = null;
     
+    // Modern Activity Result API for overlay permission
+    private final ActivityResultLauncher<Intent> overlayPermissionLauncher = registerForActivityResult(
+        new ActivityResultContracts.StartActivityForResult(),
+        result -> {
+            Log.d(TAG, "Returned from overlay permission settings");
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+                Log.i(TAG, "✅ Overlay permission granted - continuing app initialization");
+                continueInitialization();
+            } else {
+                Log.e(TAG, "❌ Overlay permission denied - app cannot function");
+                exitWithError("Show over other apps permission is required. Child Screen Time cannot block screen without this permission.");
+            }
+        }
+    );
+
     // Modern Activity Result API for usage access permission
     private final ActivityResultLauncher<Intent> usageAccessLauncher = registerForActivityResult(
         new ActivityResultContracts.StartActivityForResult(),
@@ -34,8 +51,8 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "Returned from usage access settings");
             
             if (Utils.isUsageAccessAllowed(this)) {
-                Log.i(TAG, "✅ Usage access permission granted - starting app");
-                initializeApp();
+                Log.i(TAG, "✅ Usage access permission granted - checking overlay permission");
+                checkOverlayPermission(); // Check overlay permission after usage access is granted
             } else {
                 Log.e(TAG, "❌ Usage access permission denied - app cannot function");
                 exitWithError("Usage Access permission is required. Child Screen Time cannot function without accurate time tracking.");
@@ -57,12 +74,12 @@ public class MainActivity extends AppCompatActivity {
             return; // Stop here - don't start any services or monitoring
         }
         
-        Log.i(TAG, "Usage access permission confirmed - starting app");
-        initializeApp();
+        Log.i(TAG, "Usage access permission confirmed - checking overlay permission");
+        checkOverlayPermission();
     }
     
-    private void initializeApp() {
-        Log.d(TAG, "Initializing app with required permissions");
+    private void continueInitialization() {
+        Log.d(TAG, "All critical permissions granted - initializing app");
         
         // Request exact alarm permission for Android 12+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -76,9 +93,6 @@ public class MainActivity extends AppCompatActivity {
         // Initialize app
         ScreenTimeApplication app = ScreenTimeApplication.getFromContext(this);
         app.setRunning(true);
-        
-        // Check overlay permission
-        checkOverlayPermission();
         
         // Check notification permission for Android 13+
         checkNotificationPermission();
@@ -160,18 +174,39 @@ public class MainActivity extends AppCompatActivity {
     private void checkOverlayPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!Settings.canDrawOverlays(this)) {
-                Log.w(TAG, "Overlay permission needed - requesting");
-                
+                Log.w(TAG, "Overlay permission needed - showing explanation to user");
+                showOverlayPermissionDialog();
+            } else {
+                Log.i(TAG, "✅ Overlay permission already granted - continuing");
+                continueInitialization();
+            }
+        } else {
+            // Android < 6.0 doesn't need runtime overlay permission
+            Log.i(TAG, "✅ Overlay permission not required on this Android version - continuing");
+            continueInitialization();
+        }
+    }
+
+    private void showOverlayPermissionDialog() {
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.overlay_permission_title)
+            .setMessage(R.string.overlay_permission_message)
+            .setPositiveButton(R.string.grant_permission, (dialog, which) -> {
                 Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
                 intent.setData(android.net.Uri.parse("package:" + getPackageName()));
                 
                 try {
-                    startActivity(intent);
+                    overlayPermissionLauncher.launch(intent);
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to open overlay permission settings", e);
+                    exitWithError("Unable to open permission settings. Please manually grant 'Show over other apps' permission in Settings.");
                 }
-            }
-        }
+            })
+            .setNegativeButton(R.string.exit_app, (dialog, which) -> {
+                exitWithError("Show over other apps permission is required. Child Screen Time cannot function without this permission.");
+            })
+            .setCancelable(false)
+            .show();
     }
     
     /**
@@ -195,6 +230,25 @@ public class MainActivity extends AppCompatActivity {
         ScreenLockService.startService(context);
     }
     
+    @Override
+    protected void onResume() {
+        super.onResume();
+        
+        // Re-check permissions when user returns to the app
+        // This handles cases where users might navigate back without granting permissions
+        if (!Utils.isUsageAccessAllowed(this)) {
+            Log.w(TAG, "User returned without granting usage access permission");
+            // The ActivityResultLauncher will handle this case
+            return;
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Log.w(TAG, "User returned without granting overlay permission");
+            // The ActivityResultLauncher will handle this case
+            return;
+        }
+    }
+
     /**
      * Finish the MainActivity instance that was kept for blocking purposes
      */
