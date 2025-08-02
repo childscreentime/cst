@@ -15,6 +15,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import io.github.childscreentime.R;
 import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.service.ScreenLockService;
 import io.github.childscreentime.ui.activities.StatusActivity;
