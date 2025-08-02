@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">childscreentime</string>
+    <string name="app_name">Child Screen Time</string>
     <string name="action_settings">Settings</string>
     <!-- Strings used for fragments for navigation -->
     <string name="second_fragment_label">Settings</string>
