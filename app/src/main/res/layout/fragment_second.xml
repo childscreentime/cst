@@ -56,6 +56,78 @@
                     android:maxWidth="10px"
                     android:text="30" />
             </LinearLayout>
+            
+            <!-- Parent Discovery Section -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:layout_marginTop="20dp"
+                android:background="#f0f0f0">
+                
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Parent Control Settings"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+                
+                <CheckBox
+                    android:id="@+id/parent_discovery_toggle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/enable_parent_discovery"
+                    android:textSize="16sp"
+                    android:layout_marginBottom="8dp" />
+                
+                <TextView
+                    android:id="@+id/parent_discovery_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/parent_discovery_description"
+                    android:textSize="12sp"
+                    android:textColor="#666666"
+                    android:layout_marginBottom="16dp" />
+                
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/device_id_label"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:layout_marginEnd="8dp" />
+                    
+                    <TextView
+                        android:id="@+id/device_id_text"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Loading..."
+                        android:textSize="14sp"
+                        android:fontFamily="monospace"
+                        android:background="#ffffff"
+                        android:padding="8dp"
+                        android:textIsSelectable="true" />
+                    
+                    <Button
+                        android:id="@+id/device_id_copy"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/device_id_copy"
+                        android:textSize="12sp"
+                        android:layout_marginStart="8dp" />
+                        
+                </LinearLayout>
+                
+            </LinearLayout>
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>

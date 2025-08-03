@@ -57,4 +57,12 @@
     <string name="first_fragment_label">Pause</string>
     <string name="exit">Exit</string>
     <string name="extone">1</string>
+    
+    <!-- Parent Discovery Feature -->
+    <string name="enable_parent_discovery">Enable Parent Discovery</string>
+    <string name="parent_discovery_description">Allow parent devices to discover and manage this device on the local network</string>
+    <string name="device_id_label">Device ID:</string>
+    <string name="device_id_copy">Copy Device ID</string>
+    <string name="device_id_copied">Device ID copied to clipboard</string>
+    <string name="parent_discovery_service">Parent Discovery Service</string>
 </resources>
