@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Base64;
 import java.security.SecureRandom;
+import java.security.MessageDigest;
 import java.util.UUID;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -107,19 +108,19 @@ public class DeviceSecurityManager {
     }
     
     /**
-     * Generate encryption key from device ID
+     * Generate encryption key from device ID using SHA-256 for consistency
      */
     private String generateEncryptionKey(String deviceId) {
         try {
-            // Use device ID as seed for consistent key generation
-            byte[] seed = deviceId.getBytes(StandardCharsets.UTF_8);
-            SecureRandom random = new SecureRandom(seed);
+            // Use SHA-256 to derive a consistent 256-bit key from device ID
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] keyBytes = digest.digest(deviceId.getBytes(StandardCharsets.UTF_8));
             
-            KeyGenerator keyGen = KeyGenerator.getInstance(ALGORITHM);
-            keyGen.init(128, random); // Use 128-bit AES
-            SecretKey secretKey = keyGen.generateKey();
+            // Use first 16 bytes for AES-128
+            byte[] aesKeyBytes = new byte[16];
+            System.arraycopy(keyBytes, 0, aesKeyBytes, 0, 16);
             
-            return Base64.encodeToString(secretKey.getEncoded(), Base64.DEFAULT);
+            return Base64.encodeToString(aesKeyBytes, Base64.DEFAULT);
         } catch (Exception e) {
             android.util.Log.e("DeviceSecurityManager", "Failed to generate encryption key - parent discovery disabled", e);
             throw new RuntimeException("Encryption key generation failed", e);
@@ -216,14 +217,15 @@ public class DeviceSecurityManager {
      */
     public static String createKeyFromDeviceId(String deviceId) {
         try {
-            byte[] seed = deviceId.getBytes(StandardCharsets.UTF_8);
-            SecureRandom random = new SecureRandom(seed);
+            // Use SHA-256 to derive a consistent 256-bit key from device ID
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] keyBytes = digest.digest(deviceId.getBytes(StandardCharsets.UTF_8));
             
-            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-            keyGen.init(128, random);
-            SecretKey secretKey = keyGen.generateKey();
+            // Use first 16 bytes for AES-128
+            byte[] aesKeyBytes = new byte[16];
+            System.arraycopy(keyBytes, 0, aesKeyBytes, 0, 16);
             
-            return Base64.encodeToString(secretKey.getEncoded(), Base64.DEFAULT);
+            return Base64.encodeToString(aesKeyBytes, Base64.DEFAULT);
         } catch (Exception e) {
             android.util.Log.e("DeviceSecurityManager", "Failed to create key from device ID - parent discovery disabled", e);
             throw new RuntimeException("Key creation from device ID failed", e);
