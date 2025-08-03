@@ -9,6 +9,7 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.spec.IvParameterSpec;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -20,7 +21,7 @@ public class DeviceSecurityManager {
     private static final String KEY_DEVICE_ID = "device_id";
     private static final String KEY_ENCRYPTION_KEY = "encryption_key";
     private static final String ALGORITHM = "AES";
-    private static final String TRANSFORMATION = "AES/ECB/PKCS1Padding";
+    private static final String TRANSFORMATION = "AES/CBC/PKCS5Padding";
     
     private final Context context;
     private final SharedPreferences prefs;
@@ -148,10 +149,22 @@ public class DeviceSecurityManager {
     public String encryptMessage(String message) {
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(Cipher.ENCRYPT_MODE, getEncryptionKey());
+            
+            // Generate IV for CBC mode
+            byte[] iv = new byte[16]; // AES block size
+            new SecureRandom().nextBytes(iv);
+            IvParameterSpec ivSpec = new IvParameterSpec(iv);
+            
+            cipher.init(Cipher.ENCRYPT_MODE, getEncryptionKey(), ivSpec);
             
             byte[] encryptedBytes = cipher.doFinal(message.getBytes(StandardCharsets.UTF_8));
-            return Base64.encodeToString(encryptedBytes, Base64.DEFAULT);
+            
+            // Prepend IV to encrypted data
+            byte[] encryptedWithIv = new byte[iv.length + encryptedBytes.length];
+            System.arraycopy(iv, 0, encryptedWithIv, 0, iv.length);
+            System.arraycopy(encryptedBytes, 0, encryptedWithIv, iv.length, encryptedBytes.length);
+            
+            return Base64.encodeToString(encryptedWithIv, Base64.DEFAULT);
         } catch (Exception e) {
             android.util.Log.e("DeviceSecurityManager", "Failed to encrypt message - parent discovery disabled", e);
             throw new RuntimeException("Message encryption failed", e);
@@ -163,10 +176,19 @@ public class DeviceSecurityManager {
      */
     public String decryptMessage(String encryptedMessage) {
         try {
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(Cipher.DECRYPT_MODE, getEncryptionKey());
+            byte[] encryptedWithIv = Base64.decode(encryptedMessage, Base64.DEFAULT);
             
-            byte[] encryptedBytes = Base64.decode(encryptedMessage, Base64.DEFAULT);
+            // Extract IV from the beginning
+            byte[] iv = new byte[16]; // AES block size
+            byte[] encryptedBytes = new byte[encryptedWithIv.length - 16];
+            
+            System.arraycopy(encryptedWithIv, 0, iv, 0, 16);
+            System.arraycopy(encryptedWithIv, 16, encryptedBytes, 0, encryptedBytes.length);
+            
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            IvParameterSpec ivSpec = new IvParameterSpec(iv);
+            cipher.init(Cipher.DECRYPT_MODE, getEncryptionKey(), ivSpec);
+            
             byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
             return new String(decryptedBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
