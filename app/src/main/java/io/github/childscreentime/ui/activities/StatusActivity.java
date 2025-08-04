@@ -26,7 +26,7 @@ public class StatusActivity extends AppCompatActivity {
         // Check if we should navigate directly to SecondFragment (from overlay)
         if (getIntent().getBooleanExtra("SHOW_SECOND_FRAGMENT", false)) {
             try {
-                NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_status);
+                NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_status);
                 navController.navigate(R.id.action_StatusFragment_to_SecondFragment);
                 Log.d(TAG, "Navigated directly to SecondFragment from overlay");
             } catch (Exception e) {
