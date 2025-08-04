@@ -87,8 +87,11 @@ public class ParentDiscoveryService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.i(TAG, "onCreate() called");
         try {
+            Log.i(TAG, "Initializing DeviceSecurityManager...");
             securityManager = new DeviceSecurityManager(this);
+            Log.i(TAG, "DeviceSecurityManager initialized successfully");
         } catch (RuntimeException e) {
             Log.e(TAG, "DeviceSecurityManager initialization failed - stopping service", e);
             // Disable discovery if security fails
@@ -96,20 +99,30 @@ public class ParentDiscoveryService extends Service {
             stopSelf();
             return;
         }
+        Log.i(TAG, "Creating executor service");
         executorService = Executors.newCachedThreadPool();
+        Log.i(TAG, "Creating notification channel");
         createNotificationChannel();
+        Log.i(TAG, "onCreate() completed");
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.i(TAG, "onStartCommand called - discovery enabled: " + isDiscoveryEnabled(this));
+        
         if (!isDiscoveryEnabled(this)) {
+            Log.i(TAG, "Discovery not enabled, stopping service");
             stopSelf();
             return START_NOT_STICKY;
         }
         
+        Log.i(TAG, "Starting foreground notification");
         startForeground(NOTIFICATION_ID, createNotification());
+        
+        Log.i(TAG, "Calling startDiscoveryListener()");
         startDiscoveryListener();
         
+        Log.i(TAG, "onStartCommand completed successfully - returning START_STICKY");
         return START_STICKY;
     }
     
@@ -154,14 +167,21 @@ public class ParentDiscoveryService extends Service {
     }
     
     private void startDiscoveryListener() {
-        if (isRunning) return;
+        Log.i(TAG, "startDiscoveryListener() called - isRunning: " + isRunning);
+        if (isRunning) {
+            Log.i(TAG, "Already running, returning early");
+            return;
+        }
         
+        Log.i(TAG, "Submitting discovery listener task to executor");
         executorService.execute(() -> {
+            Log.i(TAG, "Discovery listener thread started");
             try {
                 Log.d(TAG, "Attempting to bind UDP socket on port " + DISCOVERY_PORT);
                 
                 // Log network interface information
                 try {
+                    Log.i(TAG, "Enumerating network interfaces...");
                     for (NetworkInterface netIf : Collections.list(NetworkInterface.getNetworkInterfaces())) {
                         if (!netIf.isLoopback() && netIf.isUp()) {
                             for (InetAddress addr : Collections.list(netIf.getInetAddresses())) {
@@ -175,6 +195,7 @@ public class ParentDiscoveryService extends Service {
                     Log.w(TAG, "Could not enumerate network interfaces", e);
                 }
                 
+                Log.i(TAG, "Creating DatagramSocket on port " + DISCOVERY_PORT);
                 socket = new DatagramSocket(DISCOVERY_PORT);
                 socket.setBroadcast(true); // Allow receiving broadcast packets
                 isRunning = true;
@@ -183,6 +204,7 @@ public class ParentDiscoveryService extends Service {
                 Log.i(TAG, "Socket bound to: " + socket.getLocalAddress() + ":" + socket.getLocalPort());
                 
                 byte[] buffer = new byte[1024];
+                Log.i(TAG, "Entering UDP receive loop");
                 
                 while (isRunning && !socket.isClosed()) {
                     try {
