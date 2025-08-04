@@ -219,6 +219,45 @@ public class ScreenTimeApplication extends Application implements SharedPreferen
         this.lastSync = lastSync;
     }
     
+    /**
+     * Force the device into a locked/blocked state by manipulating the credit
+     * This method preserves usage statistics by modifying available credit rather than duration
+     * 
+     * @return boolean true if device was successfully locked, false otherwise
+     */
+    public synchronized boolean lockDevice() {
+        try {
+            // Force an update of the blocked state which will trigger screen locking
+            TimeManager.updateBlockedState(this);
+            
+            if (isBlocked()) {
+                Log.d(TAG, "Device is already blocked");
+                return true;
+            }
+            
+            // Force blocking by reducing credit to be less than current usage
+            Credit currentCredit = getTodayCredit();
+            if (currentCredit != null) {
+                long currentUsage = getDuration();
+                // Set credit to current usage minus 1 to force blocking
+                currentCredit.minutes = Math.max(0, currentUsage - 1);
+                getTodayCreditPreferences().set(currentCredit);
+                TimeManager.updateBlockedState(this);
+                
+                boolean lockSuccessful = isBlocked();
+                Log.d(TAG, lockSuccessful ? "Device successfully locked" : "Device lock failed");
+                return lockSuccessful;
+            } else {
+                Log.w(TAG, "Cannot lock device - no credit data available");
+                return false;
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error locking device", e);
+            return false;
+        }
+    }
+    
     // Static helper methods
     public static ScreenTimeApplication getFromContext(Context context) {
         if (context instanceof ScreenTimeApplication) {

@@ -13,6 +13,8 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import io.github.childscreentime.R;
 import io.github.childscreentime.core.DeviceSecurityManager;
+import io.github.childscreentime.core.ScreenTimeApplication;
+import io.github.childscreentime.core.TimeManager;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -228,28 +230,34 @@ public class ParentDiscoveryService extends Service {
     
     private String processCommand(String command) {
         try {
-            switch (command) {
-                case "GET_STATUS":
-                    return "STATUS_OK|Device ID: " + securityManager.getDeviceId();
-                    
-                case "GET_DEVICE_INFO":
-                    return String.format("DEVICE_INFO|%s|%s", 
-                        android.os.Build.MODEL, android.os.Build.VERSION.RELEASE);
-                    
-                case "PING":
-                    return "PONG";
-                    
+            // Parse command and parameters
+            String[] parts = command.split(":");
+            String baseCommand = parts[0];
+            
+            switch (baseCommand) {
                 case "GET_TIME_LEFT":
-                    // TODO: Integrate with TimeManager to get actual time left
-                    return "TIME_LEFT|30";
+                    return getTimeLeftResponse();
                     
                 case "LOCK_DEVICE":
-                    // TODO: Integrate with screen locking functionality
-                    return "DEVICE_LOCKED|OK";
+                    return lockDevice();
                     
-                case "UNLOCK_DEVICE":
-                    // TODO: Integrate with screen unlocking functionality
-                    return "DEVICE_UNLOCKED|OK";
+                case "EXTEND_TIME":
+                    if (parts.length != 2) {
+                        return "ERROR|Invalid EXTEND_TIME format. Use EXTEND_TIME:minutes";
+                    }
+                    
+                    try {
+                        int minutes = Integer.parseInt(parts[1]);
+                        if (minutes <= 0 || minutes > 1440) { // Max 24 hours
+                            return "ERROR|Invalid minutes. Must be 1-1440";
+                        }
+                        
+                        TimeManager.directTimeExtension(this, minutes);
+                        return "TIME_EXTENDED|" + minutes + " minutes added";
+                        
+                    } catch (NumberFormatException e) {
+                        return "ERROR|Invalid minutes value";
+                    }
                     
                 default:
                     return "ERROR|Unknown command";
@@ -257,6 +265,47 @@ public class ParentDiscoveryService extends Service {
         } catch (Exception e) {
             Log.w(TAG, "Error processing command: " + command, e);
             return "ERROR|Command processing failed";
+        }
+    }
+    
+    private String getTimeLeftResponse() {
+        try {
+            ScreenTimeApplication app = ScreenTimeApplication.getFromContext(this);
+            Credit credit = app.getTodayCredit();
+            
+            if (credit == null) {
+                return "TIME_LEFT|ERROR|No credit data available";
+            }
+            
+            long usedMinutes = app.getDuration();
+            long remainingMinutes = Math.max(0, credit.minutes - usedMinutes);
+            boolean isBlocked = app.isBlocked();
+            
+            return String.format("TIME_LEFT|%d|%s|%d", 
+                remainingMinutes, 
+                isBlocked ? "BLOCKED" : "ACTIVE",
+                credit.minutes);
+                
+        } catch (Exception e) {
+            Log.w(TAG, "Error getting time left", e);
+            return "TIME_LEFT|ERROR|Failed to get time data";
+        }
+    }
+    
+    private String lockDevice() {
+        try {
+            ScreenTimeApplication app = ScreenTimeApplication.getFromContext(this);
+            boolean lockSuccessful = app.lockDevice();
+            
+            if (lockSuccessful) {
+                return "DEVICE_LOCKED|Device is now blocked";
+            } else {
+                return "DEVICE_LOCKED|ERROR|Failed to lock device";
+            }
+            
+        } catch (Exception e) {
+            Log.w(TAG, "Error locking device", e);
+            return "DEVICE_LOCKED|ERROR|Failed to lock device";
         }
     }
     
