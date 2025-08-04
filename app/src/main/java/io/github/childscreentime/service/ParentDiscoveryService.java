@@ -16,6 +16,10 @@ import io.github.childscreentime.core.DeviceSecurityManager;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
+import java.net.NetworkInterface;
+import java.net.Inet4Address;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -155,28 +159,51 @@ public class ParentDiscoveryService extends Service {
         executorService.execute(() -> {
             try {
                 Log.d(TAG, "Attempting to bind UDP socket on port " + DISCOVERY_PORT);
+                
+                // Log network interface information
+                try {
+                    for (NetworkInterface netIf : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                        if (!netIf.isLoopback() && netIf.isUp()) {
+                            for (InetAddress addr : Collections.list(netIf.getInetAddresses())) {
+                                if (addr instanceof Inet4Address) {
+                                    Log.i(TAG, "Network interface " + netIf.getName() + ": " + addr.getHostAddress());
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Could not enumerate network interfaces", e);
+                }
+                
                 socket = new DatagramSocket(DISCOVERY_PORT);
                 socket.setBroadcast(true); // Allow receiving broadcast packets
                 isRunning = true;
                 
                 Log.i(TAG, "Parent discovery service started successfully on port " + DISCOVERY_PORT);
+                Log.i(TAG, "Socket bound to: " + socket.getLocalAddress() + ":" + socket.getLocalPort());
                 
                 byte[] buffer = new byte[1024];
                 
                 while (isRunning && !socket.isClosed()) {
                     try {
                         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                        Log.v(TAG, "Waiting for UDP packet...");
+                        Log.v(TAG, "Waiting for UDP packet on port " + DISCOVERY_PORT + "...");
+                        
+                        // Set a timeout so we can periodically log that we're still listening
+                        socket.setSoTimeout(30000); // 30 second timeout
                         socket.receive(packet);
                         
                         String message = new String(packet.getData(), 0, packet.getLength());
                         InetAddress senderAddress = packet.getAddress();
                         int senderPort = packet.getPort();
                         
-                        Log.i(TAG, "Received message: '" + message + "' from " + senderAddress + ":" + senderPort);
+                        Log.i(TAG, "Received UDP packet: '" + message + "' from " + senderAddress + ":" + senderPort);
                         
                         handleIncomingMessage(message, senderAddress, senderPort);
                         
+                    } catch (SocketTimeoutException e) {
+                        // This is normal - just means no packet received in timeout period
+                        Log.v(TAG, "Still listening for discovery packets on port " + DISCOVERY_PORT);
                     } catch (Exception e) {
                         if (isRunning) {
                             Log.e(TAG, "Error receiving packet", e);
