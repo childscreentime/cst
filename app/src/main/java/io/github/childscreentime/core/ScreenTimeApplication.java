@@ -241,7 +241,7 @@ public class ScreenTimeApplication extends Application implements SharedPreferen
                 long currentUsage = getDuration();
                 // Set credit to current usage minus 1 to force blocking
                 currentCredit.minutes = Math.max(0, currentUsage - 1);
-                getTodayCreditPreferences().set(currentCredit);
+                getTodayCreditPreferences().save(currentCredit);
                 TimeManager.updateBlockedState(this);
                 
                 boolean lockSuccessful = isBlocked();
