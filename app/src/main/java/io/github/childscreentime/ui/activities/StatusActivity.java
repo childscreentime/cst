@@ -4,8 +4,6 @@ import android.os.Bundle;
 import android.util.Log;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
 
 import io.github.childscreentime.R;
 import io.github.childscreentime.core.ScreenTimeApplication;
@@ -22,17 +20,6 @@ public class StatusActivity extends AppCompatActivity {
         setContentView(R.layout.activity_status);
         
         Log.d(TAG, "StatusActivity started with Navigation Component");
-        
-        // Check if we should navigate directly to SecondFragment (from overlay)
-        if (getIntent().getBooleanExtra("SHOW_SECOND_FRAGMENT", false)) {
-            try {
-                NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_status);
-                navController.navigate(R.id.action_StatusFragment_to_SecondFragment);
-                Log.d(TAG, "Navigated directly to SecondFragment from overlay");
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to navigate to SecondFragment", e);
-            }
-        }
         
         // The rest is handled by StatusFragment through the Navigation Component
     }

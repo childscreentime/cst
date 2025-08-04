@@ -48,6 +48,17 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar">
         </activity>
         
+        <activity android:name="io.github.childscreentime.ui.activities.OverlaySettingsActivity"
+            android:exported="false"
+            android:label="Admin Settings"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance">
+        </activity>
+        
         <!-- Foreground service for persistent screen blocking -->
         <service 
             android:name="io.github.childscreentime.service.ScreenLockService"

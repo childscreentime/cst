@@ -493,47 +493,15 @@ public class ScreenLockService extends Service {
     
     private void showSettingsDialog() {
         try {
-            // Create a minimal FragmentActivity context to host the fragment
-            Intent intent = new Intent(this, io.github.childscreentime.ui.activities.StatusActivity.class);
-            intent.putExtra("SHOW_SECOND_FRAGMENT", true);
-            intent.putExtra("FROM_OVERLAY", true);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            // Launch a transparent overlay activity that can properly host SecondFragment
+            Intent intent = new Intent(this, io.github.childscreentime.ui.activities.OverlaySettingsActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
             
             startActivity(intent);
-            Log.d(TAG, "Launched StatusActivity to show SecondFragment");
+            Log.d(TAG, "Launched OverlaySettingsActivity to properly host SecondFragment");
             
         } catch (Exception e) {
             Log.e(TAG, "Failed to show settings dialog", e);
-            // Fallback to the old method if launching activity fails
-            showSettingsDialogFallback();
-        }
-    }
-    
-    private void showSettingsDialogFallback() {
-        try {
-            LayoutInflater inflater = LayoutInflater.from(this);
-            View secondFragmentView = inflater.inflate(R.layout.fragment_second, null);
-            
-            FrameLayout contentArea = blockingView.findViewById(R.id.content_area);
-            if (contentArea != null) {
-                contentArea.removeAllViews();
-                contentArea.addView(secondFragmentView);
-                
-                // Minimal setup - just the back button since we can't properly initialize SecondFragment here
-                View fab = blockingView.findViewById(R.id.fab);
-                if (fab != null) {
-                    fab.setOnClickListener(v -> {
-                        Log.d(TAG, "Back button clicked from settings");
-                        showMainBlockingContent();
-                    });
-                }
-                
-                Log.d(TAG, "Loaded SecondFragment content into overlay (fallback method - limited functionality)");
-            } else {
-                Log.e(TAG, "Content area not found in blocking overlay");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to show settings dialog fallback", e);
         }
     }
     
