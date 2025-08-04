@@ -59,6 +59,17 @@
                 android:value="Screen time monitoring and parental control" />
         </service>
         
+        <!-- Foreground service for parent device discovery -->
+        <service 
+            android:name="io.github.childscreentime.service.ParentDiscoveryService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property 
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Parent device discovery and remote control" />
+        </service>
+        
         <receiver android:name="io.github.childscreentime.receiver.AdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
             android:exported="true">
