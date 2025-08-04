@@ -16,10 +16,6 @@ import io.github.childscreentime.core.DeviceSecurityManager;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketTimeoutException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Foreground service that enables parent device discovery and remote control.
@@ -41,7 +37,6 @@ public class ParentDiscoveryService extends Service {
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL_ID = "parent_discovery_channel";
     private static final int DISCOVERY_PORT = 8888;
-    private static final int SOCKET_TIMEOUT_MS = 60000; // 1 minute
     private static final int BUFFER_SIZE = 1024;
     
     // Protocol messages
@@ -55,7 +50,7 @@ public class ParentDiscoveryService extends Service {
     private static final String KEY_ENABLED = "discovery_enabled";
     
     private DatagramSocket socket;
-    private ExecutorService executorService;
+    private Thread listenerThread;
     private DeviceSecurityManager securityManager;
     private volatile boolean isRunning = false;
     
@@ -98,7 +93,6 @@ public class ParentDiscoveryService extends Service {
             stopSelf();
             return;
         }
-        executorService = Executors.newCachedThreadPool();
         createNotificationChannel();
     }
     
@@ -119,14 +113,11 @@ public class ParentDiscoveryService extends Service {
     public void onDestroy() {
         super.onDestroy();
         stopDiscoveryListener();
-        if (executorService != null && !executorService.isShutdown()) {
-            executorService.shutdown();
+        if (listenerThread != null && listenerThread.isAlive()) {
+            listenerThread.interrupt();
             try {
-                if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
-                    executorService.shutdownNow();
-                }
+                listenerThread.join(5000); // Wait up to 5 seconds for thread to finish
             } catch (InterruptedException e) {
-                executorService.shutdownNow();
                 Thread.currentThread().interrupt();
             }
         }
@@ -156,7 +147,7 @@ public class ParentDiscoveryService extends Service {
     private Notification createNotification() {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.parent_discovery_service))
-            .setContentText("Listening for parent device commands")
+            .setContentText("Ready for parent device discovery")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
@@ -166,7 +157,7 @@ public class ParentDiscoveryService extends Service {
     private void startDiscoveryListener() {
         if (isRunning) return;
         
-        executorService.execute(() -> {
+        listenerThread = new Thread(() -> {
             try {
                 socket = new DatagramSocket(DISCOVERY_PORT);
                 socket.setBroadcast(true);
@@ -177,8 +168,7 @@ public class ParentDiscoveryService extends Service {
                 while (isRunning && !socket.isClosed()) {
                     try {
                         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                        socket.setSoTimeout(SOCKET_TIMEOUT_MS);
-                        socket.receive(packet);
+                        socket.receive(packet); // Blocks until packet arrives - no CPU usage
                         
                         String message = new String(packet.getData(), 0, packet.getLength());
                         InetAddress senderAddress = packet.getAddress();
@@ -186,8 +176,6 @@ public class ParentDiscoveryService extends Service {
                         
                         handleIncomingMessage(message, senderAddress, senderPort);
                         
-                    } catch (SocketTimeoutException e) {
-                        // Normal timeout - continue listening
                     } catch (Exception e) {
                         if (isRunning) {
                             Log.w(TAG, "Error receiving packet", e);
@@ -200,6 +188,9 @@ public class ParentDiscoveryService extends Service {
                 isRunning = false;
             }
         });
+        
+        listenerThread.setName("UDP-Discovery-Listener");
+        listenerThread.start();
     }
     
     private void stopDiscoveryListener() {
@@ -270,19 +261,17 @@ public class ParentDiscoveryService extends Service {
     }
     
     private void sendResponse(String response, InetAddress address, int port) {
-        executorService.execute(() -> {
-            try {
-                byte[] responseBytes = response.getBytes();
-                DatagramPacket responsePacket = new DatagramPacket(
-                    responseBytes, responseBytes.length, address, port);
-                
-                DatagramSocket responseSocket = new DatagramSocket();
-                responseSocket.send(responsePacket);
-                responseSocket.close();
-                
-            } catch (Exception e) {
-                Log.w(TAG, "Failed to send response", e);
-            }
-        });
+        try {
+            byte[] responseBytes = response.getBytes();
+            DatagramPacket responsePacket = new DatagramPacket(
+                responseBytes, responseBytes.length, address, port);
+            
+            DatagramSocket responseSocket = new DatagramSocket();
+            responseSocket.send(responsePacket);
+            responseSocket.close();
+            
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to send response", e);
+        }
     }
 }
