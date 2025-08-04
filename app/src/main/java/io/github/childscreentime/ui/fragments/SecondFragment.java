@@ -97,16 +97,15 @@ public class SecondFragment extends Fragment {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Initialize security manager now that view is created
-        initializeSecurityManager();
-        
+        // Setup static UI elements first
         setupExitButton();
         setupExtendButton();
-        setupParentDiscoveryToggle();
-        setupDeviceIdDisplay();
         
         // Hide virtual keyboard by default and make sure no input fields have focus
         hideVirtualKeyboard();
+        
+        // Initialize security manager and setup dependent UI elements
+        initializeSecurityManager();
     }
     
     @Override
@@ -118,15 +117,20 @@ public class SecondFragment extends Fragment {
         // Hide virtual keyboard first
         hideVirtualKeyboard();
         
-        // Force SecurityManager reinitialization if needed
+        // Check SecurityManager and refresh UI elements
         if (securityManager == null) {
             Log.w("SecondFragment", "SecurityManager is null in onResume, forcing reinitialization");
             initializeSecurityManager();
-        } else {
-            // Even if SecurityManager exists, refresh UI elements
+        } else if (securityManager.isSecurityEnabled()) {
+            // SecurityManager exists and is working, just refresh UI
             Log.d("SecondFragment", "SecurityManager exists, refreshing UI elements");
             setupParentDiscoveryToggle();
             setupDeviceIdDisplay();
+        } else {
+            // SecurityManager exists but not enabled, try to reinitialize
+            Log.w("SecondFragment", "SecurityManager not enabled in onResume, attempting reinitialization");
+            securityManager = null;
+            initializeSecurityManager();
         }
     }
     
@@ -218,6 +222,9 @@ public class SecondFragment extends Fragment {
             return;
         }
         
+        // Clear any existing listeners to prevent duplicates
+        discoveryToggle.setOnCheckedChangeListener(null);
+        
         // Check if security is properly initialized
         if (securityManager == null || !securityManager.isSecurityEnabled()) {
             Log.w("SecondFragment", "SecurityManager not available, disabling parent discovery controls");
@@ -230,11 +237,13 @@ public class SecondFragment extends Fragment {
         
         Log.d("SecondFragment", "Setting up parent discovery toggle with SecurityManager");
         
-        // Set initial state
+        // Enable the toggle and set initial state
+        discoveryToggle.setEnabled(true);
         boolean isEnabled = ParentDiscoveryService.isDiscoveryEnabled(getContext());
         discoveryToggle.setChecked(isEnabled);
         updateDiscoveryStatus(discoveryDescription, isEnabled);
         
+        // Set up the click listener
         discoveryToggle.setOnCheckedChangeListener((buttonView, isChecked) -> {
             ParentDiscoveryService.setDiscoveryEnabled(getContext(), isChecked);
             updateDiscoveryStatus(discoveryDescription, isChecked);
@@ -275,6 +284,9 @@ public class SecondFragment extends Fragment {
             return;
         }
         
+        // Clear any existing click listeners to prevent duplicates
+        deviceIdCopy.setOnClickListener(null);
+        
         if (securityManager == null || !securityManager.isSecurityEnabled()) {
             Log.w("SecondFragment", "SecurityManager not available, showing security disabled");
             deviceIdText.setText("SECURITY_DISABLED");
@@ -290,13 +302,18 @@ public class SecondFragment extends Fragment {
         
         Log.d("SecondFragment", "Device ID display updated: " + deviceId);
         
+        // Set up the click listener
         deviceIdCopy.setOnClickListener(v -> {
-            ClipboardManager clipboard = (ClipboardManager) 
-                getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-            ClipData clip = ClipData.newPlainText("Device ID", deviceId);
-            clipboard.setPrimaryClip(clip);
-            
-            Toast.makeText(getContext(), R.string.device_id_copied, Toast.LENGTH_SHORT).show();
+            try {
+                ClipboardManager clipboard = (ClipboardManager) 
+                    getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipData clip = ClipData.newPlainText("Device ID", deviceId);
+                clipboard.setPrimaryClip(clip);
+                
+                Toast.makeText(getContext(), R.string.device_id_copied, Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Log.e("SecondFragment", "Error copying device ID", e);
+            }
         });
     }
 
