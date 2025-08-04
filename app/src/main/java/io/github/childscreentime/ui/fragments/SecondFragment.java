@@ -8,6 +8,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.CheckBox;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -34,79 +36,123 @@ public class SecondFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentSecondBinding.inflate(inflater, container, false);
         
-        // Initialize security manager with proper error handling and logging
-        initializeSecurityManager();
+        // Don't initialize security manager here - wait for onViewCreated
+        Log.d("SecondFragment", "onCreateView completed, deferring security manager initialization");
         
         return binding.getRoot();
     }
     
     private void initializeSecurityManager() {
+        Log.d("SecondFragment", "Attempting to initialize SecurityManager...");
+        
         try {
-            // Try with getContext() first
-            Context context = getContext();
-            if (context != null) {
-                securityManager = new DeviceSecurityManager(context);
-                Log.d("SecondFragment", "SecurityManager initialized successfully with fragment context");
-            } else {
-                Log.w("SecondFragment", "Fragment context is null, trying application context");
-                // Fallback to application context
-                Context appContext = requireActivity().getApplicationContext();
-                securityManager = new DeviceSecurityManager(appContext);
-                Log.d("SecondFragment", "SecurityManager initialized successfully with application context");
+            // Always use the activity context when available for consistency
+            Context context = getActivity();
+            if (context == null) {
+                context = getContext();
             }
-        } catch (RuntimeException e) {
+            if (context == null) {
+                Log.e("SecondFragment", "No context available for SecurityManager initialization");
+                scheduleSecurityManagerRetry();
+                return;
+            }
+            
+            securityManager = new DeviceSecurityManager(context);
+            Log.d("SecondFragment", "SecurityManager initialized successfully");
+            
+            // Immediately update UI elements
+            setupParentDiscoveryToggle();
+            setupDeviceIdDisplay();
+            
+        } catch (Exception e) {
             Log.e("SecondFragment", "Security initialization failed", e);
             securityManager = null;
-            
-            // Try one more time with a delay (in case it's a timing issue)
-            android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
-            handler.postDelayed(() -> {
-                Log.d("SecondFragment", "Retrying security manager initialization...");
+            scheduleSecurityManagerRetry();
+        }
+    }
+    
+    private void scheduleSecurityManagerRetry() {
+        Log.d("SecondFragment", "Scheduling SecurityManager retry...");
+        android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        handler.postDelayed(() -> {
+            if (securityManager == null && isAdded() && getView() != null) {
+                Log.d("SecondFragment", "Retrying SecurityManager initialization...");
                 try {
-                    Context retryContext = getContext();
-                    if (retryContext == null) {
-                        retryContext = requireActivity().getApplicationContext();
-                    }
-                    securityManager = new DeviceSecurityManager(retryContext);
-                    Log.d("SecondFragment", "SecurityManager retry successful");
-                    
-                    // Update UI elements that depend on security manager
-                    if (getView() != null) {
+                    Context context = getActivity();
+                    if (context != null) {
+                        securityManager = new DeviceSecurityManager(context);
+                        Log.d("SecondFragment", "SecurityManager retry successful");
+                        
+                        // Update UI elements after successful retry
                         setupParentDiscoveryToggle();
                         setupDeviceIdDisplay();
                     }
                 } catch (Exception retryException) {
-                    Log.e("SecondFragment", "Security initialization retry also failed", retryException);
+                    Log.e("SecondFragment", "SecurityManager retry failed", retryException);
                 }
-            }, 1000); // 1 second delay
-        }
+            }
+        }, 2000); // 2 second delay for retry
     }
 
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Initialize security manager now that view is created
+        initializeSecurityManager();
+        
         setupExitButton();
         setupExtendButton();
         setupParentDiscoveryToggle();
         setupDeviceIdDisplay();
+        
+        // Hide virtual keyboard by default and make sure no input fields have focus
+        hideVirtualKeyboard();
     }
     
     @Override
     public void onResume() {
         super.onResume();
         
-        // Refresh UI elements when fragment becomes visible
-        // This helps when accessing from different contexts (StatusActivity vs normal navigation)
         Log.d("SecondFragment", "onResume - refreshing UI elements");
         
-        if (securityManager == null) {
-            Log.w("SecondFragment", "SecurityManager is null in onResume, attempting reinitialization");
-            initializeSecurityManager();
-        }
+        // Hide virtual keyboard first
+        hideVirtualKeyboard();
         
-        // Refresh the discovery toggle and device ID display
-        setupParentDiscoveryToggle();
-        setupDeviceIdDisplay();
+        // Force SecurityManager reinitialization if needed
+        if (securityManager == null) {
+            Log.w("SecondFragment", "SecurityManager is null in onResume, forcing reinitialization");
+            initializeSecurityManager();
+        } else {
+            // Even if SecurityManager exists, refresh UI elements
+            Log.d("SecondFragment", "SecurityManager exists, refreshing UI elements");
+            setupParentDiscoveryToggle();
+            setupDeviceIdDisplay();
+        }
+    }
+    
+    private void hideVirtualKeyboard() {
+        try {
+            if (getActivity() != null && getView() != null) {
+                // Clear focus from any input fields
+                if (binding.numExtend != null) {
+                    binding.numExtend.clearFocus();
+                }
+                
+                // Hide keyboard
+                android.view.inputmethod.InputMethodManager imm = 
+                    (android.view.inputmethod.InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
+                }
+                
+                // Request focus on the root view to ensure no input field is focused
+                getView().requestFocus();
+                
+                Log.d("SecondFragment", "Virtual keyboard hidden and focus cleared");
+            }
+        } catch (Exception e) {
+            Log.e("SecondFragment", "Error hiding virtual keyboard", e);
+        }
     }
     
     private void setupExitButton() {
@@ -126,26 +172,63 @@ public class SecondFragment extends Fragment {
     private void setupExtendButton() {
         binding.buttonEtendCust.setOnClickListener(v -> {
             try {
+                // Hide keyboard first
+                hideVirtualKeyboard();
+                
                 int numExtend = Integer.parseInt(binding.numExtend.getText().toString());
                 TimeManager.directTimeExtension(getContext(), numExtend);
+                
+                // Clear the input field after successful extension
+                binding.numExtend.setText("");
+                
             } catch (NumberFormatException e) {
                 android.util.Log.e("SecondFragment", "Invalid extend time entered", e);
+                // Hide keyboard even on error
+                hideVirtualKeyboard();
             }
         });
+        
+        // Configure the input field to be less intrusive
+        if (binding.numExtend != null) {
+            // Don't auto-focus the input field
+            binding.numExtend.clearFocus();
+            
+            // Hide keyboard when done is pressed
+            binding.numExtend.setOnEditorActionListener((v, actionId, event) -> {
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                    hideVirtualKeyboard();
+                    return true;
+                }
+                return false;
+            });
+        }
     }
     
     private void setupParentDiscoveryToggle() {
+        if (binding == null) {
+            Log.w("SecondFragment", "Binding is null, cannot setup parent discovery toggle");
+            return;
+        }
+        
         CheckBox discoveryToggle = binding.parentDiscoveryToggle;
         TextView discoveryDescription = binding.parentDiscoveryDescription;
         
+        if (discoveryToggle == null || discoveryDescription == null) {
+            Log.w("SecondFragment", "Discovery toggle or description view not found");
+            return;
+        }
+        
         // Check if security is properly initialized
         if (securityManager == null || !securityManager.isSecurityEnabled()) {
+            Log.w("SecondFragment", "SecurityManager not available, disabling parent discovery controls");
             discoveryToggle.setEnabled(false);
             discoveryToggle.setChecked(false);
             discoveryDescription.setText("Parent discovery unavailable - security initialization failed");
             discoveryDescription.setTextColor(0xFFFF0000); // Red color
             return;
         }
+        
+        Log.d("SecondFragment", "Setting up parent discovery toggle with SecurityManager");
         
         // Set initial state
         boolean isEnabled = ParentDiscoveryService.isDiscoveryEnabled(getContext());
@@ -179,10 +262,21 @@ public class SecondFragment extends Fragment {
     }
     
     private void setupDeviceIdDisplay() {
+        if (binding == null) {
+            Log.w("SecondFragment", "Binding is null, cannot setup device ID display");
+            return;
+        }
+        
         TextView deviceIdText = binding.deviceIdText;
         View deviceIdCopy = binding.deviceIdCopy;
         
+        if (deviceIdText == null || deviceIdCopy == null) {
+            Log.w("SecondFragment", "Device ID views not found");
+            return;
+        }
+        
         if (securityManager == null || !securityManager.isSecurityEnabled()) {
+            Log.w("SecondFragment", "SecurityManager not available, showing security disabled");
             deviceIdText.setText("SECURITY_DISABLED");
             deviceIdText.setTextColor(0xFFFF0000); // Red color
             deviceIdCopy.setEnabled(false);
@@ -191,6 +285,10 @@ public class SecondFragment extends Fragment {
         
         String deviceId = securityManager.getDeviceId();
         deviceIdText.setText(deviceId);
+        deviceIdText.setTextColor(0xFF000000); // Black color for normal text
+        deviceIdCopy.setEnabled(true);
+        
+        Log.d("SecondFragment", "Device ID display updated: " + deviceId);
         
         deviceIdCopy.setOnClickListener(v -> {
             ClipboardManager clipboard = (ClipboardManager) 
