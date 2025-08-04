@@ -66,14 +66,18 @@ public class ParentDiscoveryService extends Service {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putBoolean(KEY_ENABLED, enabled).apply();
         
+        Log.i(TAG, "Discovery enabled changed to: " + enabled);
+        
         Intent serviceIntent = new Intent(context, ParentDiscoveryService.class);
         if (enabled) {
+            Log.i(TAG, "Starting ParentDiscoveryService...");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent);
             } else {
                 context.startService(serviceIntent);
             }
         } else {
+            Log.i(TAG, "Stopping ParentDiscoveryService...");
             context.stopService(serviceIntent);
         }
     }
@@ -88,8 +92,10 @@ public class ParentDiscoveryService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.i(TAG, "ParentDiscoveryService onCreate() called");
         try {
             securityManager = new DeviceSecurityManager(this);
+            Log.d(TAG, "DeviceSecurityManager initialized successfully");
         } catch (RuntimeException e) {
             Log.e(TAG, "Security initialization failed", e);
             setDiscoveryEnabled(this, false);
@@ -97,18 +103,26 @@ public class ParentDiscoveryService extends Service {
             return;
         }
         createNotificationChannel();
+        Log.i(TAG, "ParentDiscoveryService onCreate() completed successfully");
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (!isDiscoveryEnabled(this)) {
+        Log.i(TAG, "ParentDiscoveryService onStartCommand() called");
+        boolean isEnabled = isDiscoveryEnabled(this);
+        Log.i(TAG, "Discovery enabled: " + isEnabled);
+        
+        if (!isEnabled) {
+            Log.w(TAG, "Discovery is disabled, stopping service");
             stopSelf();
             return START_NOT_STICKY;
         }
         
+        Log.i(TAG, "Starting foreground service with notification");
         startForeground(NOTIFICATION_ID, createNotification());
         startDiscoveryListener();
         
+        Log.i(TAG, "ParentDiscoveryService started successfully");
         return START_STICKY;
     }
     
@@ -158,24 +172,35 @@ public class ParentDiscoveryService extends Service {
     }
     
     private void startDiscoveryListener() {
-        if (isRunning) return;
+        if (isRunning) {
+            Log.w(TAG, "Discovery listener already running, skipping start");
+            return;
+        }
+        
+        Log.i(TAG, "Starting UDP discovery listener on port " + DISCOVERY_PORT);
         
         listenerThread = new Thread(() -> {
             try {
+                Log.d(TAG, "Creating UDP socket on port " + DISCOVERY_PORT);
                 socket = new DatagramSocket(DISCOVERY_PORT);
                 socket.setBroadcast(true);
                 isRunning = true;
+                
+                Log.i(TAG, "UDP socket created successfully, listening for packets...");
                 
                 byte[] buffer = new byte[BUFFER_SIZE];
                 
                 while (isRunning && !socket.isClosed()) {
                     try {
                         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                        Log.v(TAG, "Waiting for UDP packet...");
                         socket.receive(packet); // Blocks until packet arrives - no CPU usage
                         
                         String message = new String(packet.getData(), 0, packet.getLength());
                         InetAddress senderAddress = packet.getAddress();
                         int senderPort = packet.getPort();
+                        
+                        Log.i(TAG, "Received UDP packet from " + senderAddress + ":" + senderPort + " - Message: '" + message + "'");
                         
                         handleIncomingMessage(message, senderAddress, senderPort);
                         
@@ -194,6 +219,7 @@ public class ParentDiscoveryService extends Service {
         
         listenerThread.setName("UDP-Discovery-Listener");
         listenerThread.start();
+        Log.i(TAG, "Discovery listener thread started");
     }
     
     private void stopDiscoveryListener() {
@@ -205,23 +231,31 @@ public class ParentDiscoveryService extends Service {
     
     private void handleIncomingMessage(String message, InetAddress senderAddress, int senderPort) {
         try {
+            Log.d(TAG, "Processing message: '" + message + "' from " + senderAddress + ":" + senderPort);
+            
             if (DISCOVERY_REQUEST.equals(message)) {
+                Log.i(TAG, "Received discovery request, sending response");
                 sendResponse(DISCOVERY_RESPONSE, senderAddress, senderPort);
                 
             } else if (message.startsWith(COMMAND_PREFIX)) {
                 String encryptedCommand = message.substring(COMMAND_PREFIX.length());
+                Log.d(TAG, "Received encrypted command, decrypting...");
                 
                 try {
                     String decryptedCommand = securityManager.decryptMessage(encryptedCommand);
+                    Log.d(TAG, "Command decrypted: " + decryptedCommand);
                     String response = processCommand(decryptedCommand);
                     String encryptedResponse = securityManager.encryptMessage(response);
                     
+                    Log.d(TAG, "Sending encrypted response");
                     sendResponse(RESPONSE_PREFIX + encryptedResponse, senderAddress, senderPort);
                 } catch (RuntimeException e) {
                     Log.e(TAG, "Encryption/decryption failed", e);
                     setDiscoveryEnabled(this, false);
                     stopSelf();
                 }
+            } else {
+                Log.w(TAG, "Unknown message format: " + message);
             }
             
         } catch (Exception e) {
@@ -312,6 +346,7 @@ public class ParentDiscoveryService extends Service {
     
     private void sendResponse(String response, InetAddress address, int port) {
         try {
+            Log.d(TAG, "Sending response to " + address + ":" + port + " - " + response);
             byte[] responseBytes = response.getBytes();
             DatagramPacket responsePacket = new DatagramPacket(
                 responseBytes, responseBytes.length, address, port);
@@ -319,6 +354,8 @@ public class ParentDiscoveryService extends Service {
             DatagramSocket responseSocket = new DatagramSocket();
             responseSocket.send(responsePacket);
             responseSocket.close();
+            
+            Log.d(TAG, "Response sent successfully");
             
         } catch (Exception e) {
             Log.w(TAG, "Failed to send response", e);
