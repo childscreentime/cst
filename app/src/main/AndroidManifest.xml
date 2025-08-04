@@ -55,8 +55,8 @@
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:excludeFromRecents="true"
-            android:taskAffinity=""
-            android:launchMode="singleInstance">
+            android:noHistory="true"
+            android:launchMode="singleTop">
         </activity>
         
         <!-- Foreground service for persistent screen blocking -->

@@ -493,15 +493,19 @@ public class ScreenLockService extends Service {
     
     private void showSettingsDialog() {
         try {
+            Log.d(TAG, "Attempting to launch OverlaySettingsActivity...");
+            
             // Launch a transparent overlay activity that can properly host SecondFragment
             Intent intent = new Intent(this, io.github.childscreentime.ui.activities.OverlaySettingsActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | 
+                           Intent.FLAG_ACTIVITY_CLEAR_TOP |
+                           Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT);
             
             startActivity(intent);
-            Log.d(TAG, "Launched OverlaySettingsActivity to properly host SecondFragment");
+            Log.d(TAG, "OverlaySettingsActivity launch request sent");
             
         } catch (Exception e) {
-            Log.e(TAG, "Failed to show settings dialog", e);
+            Log.e(TAG, "Failed to launch OverlaySettingsActivity", e);
         }
     }
     
