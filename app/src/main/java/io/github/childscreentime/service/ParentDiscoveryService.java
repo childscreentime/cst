@@ -63,6 +63,9 @@ public class ParentDiscoveryService extends Service {
     private DeviceSecurityManager securityManager;
     private volatile boolean isRunning = false;
     
+    // Static reference to the current service instance for health checks
+    private static volatile ParentDiscoveryService currentInstance = null;
+    
     public static boolean isDiscoveryEnabled(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getBoolean(KEY_ENABLED, false);
@@ -104,10 +107,38 @@ public class ParentDiscoveryService extends Service {
         return isDiscoveryEnabled(context);
     }
     
+    /**
+     * Check if the service instance is actually alive and listening
+     * This is a lightweight check that doesn't restart the service
+     */
+    public static boolean isServiceActuallyRunning() {
+        ParentDiscoveryService instance = currentInstance;
+        return instance != null && 
+               instance.isRunning && 
+               instance.socket != null && 
+               !instance.socket.isClosed() &&
+               instance.listenerTask != null && 
+               !instance.listenerTask.isDone();
+    }
+    
+    /**
+     * Lightweight restart - only restart if the service should be running but isn't
+     */
+    public static void ensureServiceRunning(Context context) {
+        boolean shouldBeRunning = isDiscoveryEnabled(context);
+        if (shouldBeRunning && !isServiceActuallyRunning()) {
+            Log.w(TAG, "ParentDiscoveryService should be running but isn't - restarting");
+            setDiscoveryEnabled(context, true);
+        }
+    }
+    
     @Override
     public void onCreate() {
         super.onCreate();
         Log.i(TAG, "ParentDiscoveryService onCreate() called");
+        
+        // Set this as the current instance
+        currentInstance = this;
         
         // Initialize executor service for thread management
         executorService = Executors.newSingleThreadExecutor(); // Single thread for UDP listener
@@ -148,6 +179,12 @@ public class ParentDiscoveryService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        
+        // Clear the current instance reference
+        if (currentInstance == this) {
+            currentInstance = null;
+        }
+        
         stopDiscoveryListener();
         
         // Shutdown executor service properly

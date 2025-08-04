@@ -8,6 +8,7 @@ import android.util.Log;
 import java.util.Calendar;
 
 import io.github.childscreentime.model.Credit;
+import io.github.childscreentime.service.ParentDiscoveryService;
 import io.github.childscreentime.service.ScreenLockService;
 import io.github.childscreentime.ui.activities.MainActivity;
 import io.github.childscreentime.utils.Utils;
@@ -299,8 +300,24 @@ public class TimeManager {
                            
         if (shouldSync) {
             app.setLastSync(currentTime);
+            
+            // Check if ParentDiscoveryService is enabled but not running, and restart it
+            checkAndRestartParentDiscoveryService(context);
+            
             // Move server sync to separate class
             Log.d(TAG, "Should sync to server");
+        }
+    }
+    
+    /**
+     * Check if ParentDiscoveryService should be running but isn't, and restart it if needed
+     */
+    private static void checkAndRestartParentDiscoveryService(Context context) {
+        try {
+            // Use the lightweight check that only restarts if actually needed
+            ParentDiscoveryService.ensureServiceRunning(context);
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking/restarting ParentDiscoveryService", e);
         }
     }
 }
