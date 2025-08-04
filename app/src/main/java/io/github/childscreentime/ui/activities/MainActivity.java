@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import io.github.childscreentime.R;
 import io.github.childscreentime.core.ScreenTimeApplication;
+import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.service.ScreenLockService;
 import io.github.childscreentime.ui.activities.StatusActivity;
 import io.github.childscreentime.utils.Utils;
@@ -247,6 +248,18 @@ public class MainActivity extends AppCompatActivity {
             Log.w(TAG, "User returned without granting overlay permission");
             // The ActivityResultLauncher will handle this case
             return;
+        }
+        
+        // Check if blocking state needs to be updated (e.g., new day started)
+        // This ensures that if usage has reset to 0 on a new day, the device gets unblocked
+        Log.d(TAG, "Activity resumed - checking current blocking state");
+        TimeManager.updateBlockedState(this);
+        
+        // If device is not blocked after the state update, finish this activity to show normal content
+        ScreenTimeApplication app = ScreenTimeApplication.getFromContext(this);
+        if (!app.isBlocked()) {
+            Log.d(TAG, "Device is not blocked - finishing MainActivity to show normal content");
+            finish();
         }
     }
 

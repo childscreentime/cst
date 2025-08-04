@@ -122,12 +122,14 @@ public class TimeManager {
             Log.d(TAG, String.format("Direct extension applied. Credit: %d minutes (usage %d + extension %d)", 
                 newCreditMinutes, durationMinutes, extendMinutes));
             
-            // Update state
+            // Update state immediately
             app.setBlocked(false);
-            notifyScreenLockService(context);
             
             // Reset notification tracking so warnings can be shown again after extension
             NotificationHelper.resetWarningTracking();
+            
+            // Force immediate overlay update after credit save
+            notifyScreenLockService(context);
             
             // Add small delay before re-checking to prevent System UI conflicts
             android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -135,6 +137,8 @@ public class TimeManager {
                 Log.d(TAG, "Post-extension delayed state check starting");
                 // Force immediate re-check after extension
                 updateBlockedState(context);
+                // Update overlay again after state check to ensure consistency
+                notifyScreenLockService(context);
                 Log.d(TAG, "Post-extension state check completed");
                 extensionInProgress = false; // Reset flag after delay
             }, 500); // 500ms delay
