@@ -358,20 +358,22 @@ public class ParentDiscoveryService extends Service {
                 
             } else if (message.startsWith(COMMAND_PREFIX)) {
                 String encryptedCommand = message.substring(COMMAND_PREFIX.length());
-                Log.d(TAG, "Received encrypted command, decrypting...");
+                Log.d(TAG, "Received encrypted command, attempting decryption...");
                 
                 try {
                     String decryptedCommand = securityManager.decryptMessage(encryptedCommand);
-                    Log.d(TAG, "Command decrypted: " + decryptedCommand);
+                    Log.d(TAG, "Command decrypted successfully: " + decryptedCommand);
                     String response = processCommand(decryptedCommand);
                     String encryptedResponse = securityManager.encryptMessage(response);
                     
                     Log.d(TAG, "Sending encrypted response");
                     sendResponse(RESPONSE_PREFIX + encryptedResponse, senderAddress, senderPort);
+                    
                 } catch (RuntimeException e) {
-                    Log.e(TAG, "Encryption/decryption failed", e);
-                    setDiscoveryEnabled(this, false);
-                    stopSelf();
+                    Log.w(TAG, "Failed to decrypt command from " + senderAddress + " - ignoring message", e);
+                    // Don't shut down the service for decryption failures - just ignore the message
+                    // This could be from a different device or corrupted data
+                    return;
                 }
             } else {
                 Log.w(TAG, "Unknown message format: " + message);
