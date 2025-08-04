@@ -9,6 +9,7 @@ import java.util.Calendar;
 
 import io.github.childscreentime.model.Credit;
 import io.github.childscreentime.service.ScreenLockService;
+import io.github.childscreentime.ui.activities.MainActivity;
 import io.github.childscreentime.utils.Utils;
 
 /**
@@ -130,6 +131,9 @@ public class TimeManager {
             
             // Force immediate overlay update after credit save
             notifyScreenLockService(context);
+            
+            // Finish the MainActivity that was kept for blocking (similar to overlay extension buttons)
+            MainActivity.finishBlockingInstance();
             
             // Add small delay before re-checking to prevent System UI conflicts
             android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
