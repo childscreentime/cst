@@ -19,6 +19,7 @@ import io.github.childscreentime.model.Credit;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 
 /**
  * Foreground service that enables parent device discovery and remote control.
@@ -184,17 +185,24 @@ public class ParentDiscoveryService extends Service {
                 Log.d(TAG, "Creating UDP socket on port " + DISCOVERY_PORT);
                 socket = new DatagramSocket(DISCOVERY_PORT);
                 socket.setBroadcast(true);
+                socket.setSoTimeout(5000); // 5 second timeout to prevent indefinite blocking
                 isRunning = true;
                 
                 Log.i(TAG, "UDP socket created successfully, listening for packets...");
+                Log.d(TAG, "Socket broadcast enabled: " + socket.getBroadcast());
+                Log.d(TAG, "Socket timeout: " + socket.getSoTimeout() + "ms");
                 
-                byte[] buffer = new byte[BUFFER_SIZE];
+                // Send a test packet to verify the socket is working
+                sendTestPacket();
                 
                 while (isRunning && !socket.isClosed()) {
                     try {
+                        // Create fresh buffer for each packet to avoid data corruption
+                        byte[] buffer = new byte[BUFFER_SIZE];
                         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                        
                         Log.v(TAG, "Waiting for UDP packet...");
-                        socket.receive(packet); // Blocks until packet arrives - no CPU usage
+                        socket.receive(packet); // This will timeout after 5 seconds
                         
                         String message = new String(packet.getData(), 0, packet.getLength());
                         InetAddress senderAddress = packet.getAddress();
@@ -204,9 +212,20 @@ public class ParentDiscoveryService extends Service {
                         
                         handleIncomingMessage(message, senderAddress, senderPort);
                         
+                    } catch (java.net.SocketTimeoutException e) {
+                        // This is expected - just continue the loop
+                        Log.v(TAG, "Socket timeout - no packets received, continuing...");
+                        continue;
                     } catch (Exception e) {
                         if (isRunning) {
                             Log.w(TAG, "Error receiving packet", e);
+                            // Add small delay before retrying to prevent tight error loop
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
                         }
                     }
                 }
@@ -214,6 +233,11 @@ public class ParentDiscoveryService extends Service {
             } catch (Exception e) {
                 Log.e(TAG, "Failed to start discovery listener", e);
                 isRunning = false;
+            } finally {
+                if (socket != null && !socket.isClosed()) {
+                    socket.close();
+                }
+                Log.i(TAG, "UDP listener thread terminated");
             }
         });
         
@@ -233,7 +257,10 @@ public class ParentDiscoveryService extends Service {
         try {
             Log.d(TAG, "Processing message: '" + message + "' from " + senderAddress + ":" + senderPort);
             
-            if (DISCOVERY_REQUEST.equals(message)) {
+            if ("CST_TEST_PACKET".equals(message)) {
+                Log.i(TAG, "Received test packet - UDP reception is working!");
+                
+            } else if (DISCOVERY_REQUEST.equals(message)) {
                 Log.i(TAG, "Received discovery request, sending response");
                 sendResponse(DISCOVERY_RESPONSE, senderAddress, senderPort);
                 
@@ -360,5 +387,34 @@ public class ParentDiscoveryService extends Service {
         } catch (Exception e) {
             Log.w(TAG, "Failed to send response", e);
         }
+    }
+    
+    /**
+     * Send a test packet to verify UDP reception is working
+     */
+    private void sendTestPacket() {
+        new Thread(() -> {
+            try {
+                Thread.sleep(1000); // Wait 1 second for socket to be ready
+                Log.d(TAG, "Sending test packet to verify UDP reception");
+                
+                String testMessage = "CST_TEST_PACKET";
+                byte[] testData = testMessage.getBytes();
+                
+                // Send to localhost
+                InetAddress localhost = InetAddress.getByName("127.0.0.1");
+                DatagramPacket testPacket = new DatagramPacket(
+                    testData, testData.length, localhost, DISCOVERY_PORT);
+                
+                DatagramSocket testSocket = new DatagramSocket();
+                testSocket.send(testPacket);
+                testSocket.close();
+                
+                Log.d(TAG, "Test packet sent successfully");
+                
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to send test packet", e);
+            }
+        }).start();
     }
 }
