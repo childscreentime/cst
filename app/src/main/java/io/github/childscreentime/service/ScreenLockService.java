@@ -28,6 +28,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import io.github.childscreentime.R;
+import io.github.childscreentime.core.DeviceSecurityManager;
 import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.model.Credit;
@@ -492,6 +493,24 @@ public class ScreenLockService extends Service {
     
     private void showSettingsDialog() {
         try {
+            // Create a minimal FragmentActivity context to host the fragment
+            Intent intent = new Intent(this, io.github.childscreentime.ui.activities.StatusActivity.class);
+            intent.putExtra("SHOW_SECOND_FRAGMENT", true);
+            intent.putExtra("FROM_OVERLAY", true);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            
+            startActivity(intent);
+            Log.d(TAG, "Launched StatusActivity to show SecondFragment");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to show settings dialog", e);
+            // Fallback to the old method if launching activity fails
+            showSettingsDialogFallback();
+        }
+    }
+    
+    private void showSettingsDialogFallback() {
+        try {
             LayoutInflater inflater = LayoutInflater.from(this);
             View secondFragmentView = inflater.inflate(R.layout.fragment_second, null);
             
@@ -499,60 +518,22 @@ public class ScreenLockService extends Service {
             if (contentArea != null) {
                 contentArea.removeAllViews();
                 contentArea.addView(secondFragmentView);
-                setupSecondFragmentButtons(secondFragmentView);
                 
-                Log.d(TAG, "Loaded SecondFragment content into overlay");
+                // Minimal setup - just the back button since we can't properly initialize SecondFragment here
+                View fab = blockingView.findViewById(R.id.fab);
+                if (fab != null) {
+                    fab.setOnClickListener(v -> {
+                        Log.d(TAG, "Back button clicked from settings");
+                        showMainBlockingContent();
+                    });
+                }
+                
+                Log.d(TAG, "Loaded SecondFragment content into overlay (fallback method - limited functionality)");
             } else {
                 Log.e(TAG, "Content area not found in blocking overlay");
             }
         } catch (Exception e) {
-            Log.e(TAG, "Failed to show settings dialog", e);
-        }
-    }
-    
-    private void setupSecondFragmentButtons(View fragmentView) {
-        // Exit button
-        View exitButton = fragmentView.findViewById(R.id.button_second);
-        if (exitButton != null) {
-            exitButton.setOnClickListener(v -> {
-                Log.d(TAG, "Exit button clicked");
-                app.stopBackgroundMonitoring();
-                stopSelf();
-                System.exit(0);
-            });
-        }
-        
-        // Custom extend button
-        View extendButton = fragmentView.findViewById(R.id.button_etend_cust);
-        View extendInput = fragmentView.findViewById(R.id.num_extend);
-        if (extendButton != null && extendInput != null) {
-            extendButton.setOnClickListener(v -> {
-                try {
-                    android.widget.EditText editText = (android.widget.EditText) extendInput;
-                    String extendText = editText.getText().toString();
-                    int extendMinutes = Integer.parseInt(extendText);
-                    
-                    Log.d(TAG, "Custom extend requested: " + extendMinutes + " minutes");
-                    TimeManager.directTimeExtension(this, extendMinutes);
-                    updateBlockingOverlay();
-                    // Finish the MainActivity that was kept for blocking
-                    MainActivity.finishBlockingInstance();
-                    
-                } catch (NumberFormatException e) {
-                    Log.e(TAG, "Invalid extend time entered", e);
-                } catch (Exception e) {
-                    Log.e(TAG, "Error processing extend request", e);
-                }
-            });
-        }
-        
-        // Back button (FAB)
-        View fab = blockingView.findViewById(R.id.fab);
-        if (fab != null) {
-            fab.setOnClickListener(v -> {
-                Log.d(TAG, "Back button clicked from settings");
-                showMainBlockingContent();
-            });
+            Log.e(TAG, "Failed to show settings dialog fallback", e);
         }
     }
     
