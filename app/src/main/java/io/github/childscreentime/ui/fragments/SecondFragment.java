@@ -4,6 +4,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,14 +34,52 @@ public class SecondFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentSecondBinding.inflate(inflater, container, false);
         
-        try {
-            securityManager = new DeviceSecurityManager(getContext());
-        } catch (RuntimeException e) {
-            // Security initialization failed - parent discovery will be disabled
-            securityManager = null;
-        }
+        // Initialize security manager with proper error handling and logging
+        initializeSecurityManager();
         
         return binding.getRoot();
+    }
+    
+    private void initializeSecurityManager() {
+        try {
+            // Try with getContext() first
+            Context context = getContext();
+            if (context != null) {
+                securityManager = new DeviceSecurityManager(context);
+                Log.d("SecondFragment", "SecurityManager initialized successfully with fragment context");
+            } else {
+                Log.w("SecondFragment", "Fragment context is null, trying application context");
+                // Fallback to application context
+                Context appContext = requireActivity().getApplicationContext();
+                securityManager = new DeviceSecurityManager(appContext);
+                Log.d("SecondFragment", "SecurityManager initialized successfully with application context");
+            }
+        } catch (RuntimeException e) {
+            Log.e("SecondFragment", "Security initialization failed", e);
+            securityManager = null;
+            
+            // Try one more time with a delay (in case it's a timing issue)
+            android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+            handler.postDelayed(() -> {
+                Log.d("SecondFragment", "Retrying security manager initialization...");
+                try {
+                    Context retryContext = getContext();
+                    if (retryContext == null) {
+                        retryContext = requireActivity().getApplicationContext();
+                    }
+                    securityManager = new DeviceSecurityManager(retryContext);
+                    Log.d("SecondFragment", "SecurityManager retry successful");
+                    
+                    // Update UI elements that depend on security manager
+                    if (getView() != null) {
+                        setupParentDiscoveryToggle();
+                        setupDeviceIdDisplay();
+                    }
+                } catch (Exception retryException) {
+                    Log.e("SecondFragment", "Security initialization retry also failed", retryException);
+                }
+            }, 1000); // 1 second delay
+        }
     }
 
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
@@ -48,6 +87,24 @@ public class SecondFragment extends Fragment {
 
         setupExitButton();
         setupExtendButton();
+        setupParentDiscoveryToggle();
+        setupDeviceIdDisplay();
+    }
+    
+    @Override
+    public void onResume() {
+        super.onResume();
+        
+        // Refresh UI elements when fragment becomes visible
+        // This helps when accessing from different contexts (StatusActivity vs normal navigation)
+        Log.d("SecondFragment", "onResume - refreshing UI elements");
+        
+        if (securityManager == null) {
+            Log.w("SecondFragment", "SecurityManager is null in onResume, attempting reinitialization");
+            initializeSecurityManager();
+        }
+        
+        // Refresh the discovery toggle and device ID display
         setupParentDiscoveryToggle();
         setupDeviceIdDisplay();
     }
