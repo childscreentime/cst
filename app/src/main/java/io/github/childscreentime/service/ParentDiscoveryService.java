@@ -75,16 +75,25 @@ public class ParentDiscoveryService extends Service {
         Log.i(TAG, "Discovery enabled changed to: " + enabled);
         
         Intent serviceIntent = new Intent(context, ParentDiscoveryService.class);
+        
+        // Always stop the service first to prevent port conflicts
+        Log.i(TAG, "Stopping any existing ParentDiscoveryService instance...");
+        context.stopService(serviceIntent);
+        
         if (enabled) {
+            // Add a small delay to ensure the service is fully stopped
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            
             Log.i(TAG, "Starting ParentDiscoveryService...");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent);
             } else {
                 context.startService(serviceIntent);
             }
-        } else {
-            Log.i(TAG, "Stopping ParentDiscoveryService...");
-            context.stopService(serviceIntent);
         }
     }
     
@@ -193,24 +202,75 @@ public class ParentDiscoveryService extends Service {
     
     private void startDiscoveryListener() {
         if (isRunning) {
-            Log.w(TAG, "Discovery listener already running, skipping start");
-            return;
+            Log.w(TAG, "Discovery listener already running, stopping existing listener first");
+            stopDiscoveryListener();
+            // Wait a bit for cleanup
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
         
         Log.i(TAG, "Starting UDP discovery listener on port " + DISCOVERY_PORT);
         
         listenerTask = executorService.submit(() -> {
+            int retryCount = 0;
+            final int maxRetries = 3;
+            
+            while (retryCount < maxRetries && !Thread.currentThread().isInterrupted()) {
+                try {
+                    Log.d(TAG, "Creating UDP socket on port " + DISCOVERY_PORT + " (attempt " + (retryCount + 1) + ")");
+                    
+                    // Ensure any existing socket is closed first
+                    if (socket != null && !socket.isClosed()) {
+                        Log.d(TAG, "Closing existing socket before creating new one");
+                        socket.close();
+                        socket = null;
+                    }
+                    
+                    socket = new DatagramSocket(DISCOVERY_PORT);
+                    socket.setBroadcast(true);
+                    socket.setSoTimeout(30000); // 30 second timeout for better battery life
+                    socket.setReuseAddress(true); // Allow reuse of address
+                    isRunning = true;
+                    
+                    Log.i(TAG, "UDP socket created successfully, listening for packets...");
+                    Log.d(TAG, "Socket broadcast enabled: " + socket.getBroadcast());
+                    Log.d(TAG, "Socket timeout: " + socket.getSoTimeout() + "ms");
+                    
+                    break; // Success, exit retry loop
+                    
+                } catch (java.net.BindException e) {
+                    retryCount++;
+                    Log.w(TAG, "Port " + DISCOVERY_PORT + " in use, attempt " + retryCount + "/" + maxRetries, e);
+                    
+                    if (retryCount < maxRetries) {
+                        try {
+                            // Wait longer between retries
+                            Thread.sleep(2000 * retryCount);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                    } else {
+                        Log.e(TAG, "Failed to bind to port after " + maxRetries + " attempts");
+                        isRunning = false;
+                        return;
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Unexpected error creating socket", e);
+                    isRunning = false;
+                    return;
+                }
+            }
+            
+            if (!isRunning) {
+                Log.e(TAG, "Failed to start discovery listener after retries");
+                return;
+            }
+            
             try {
-                Log.d(TAG, "Creating UDP socket on port " + DISCOVERY_PORT);
-                socket = new DatagramSocket(DISCOVERY_PORT);
-                socket.setBroadcast(true);
-                socket.setSoTimeout(30000); // 30 second timeout for better battery life
-                isRunning = true;
-                
-                Log.i(TAG, "UDP socket created successfully, listening for packets...");
-                Log.d(TAG, "Socket broadcast enabled: " + socket.getBroadcast());
-                Log.d(TAG, "Socket timeout: " + socket.getSoTimeout() + "ms");
-                
                 while (isRunning && !socket.isClosed() && !Thread.currentThread().isInterrupted()) {
                     try {
                         // Create fresh buffer for each packet to avoid data corruption
@@ -263,8 +323,12 @@ public class ParentDiscoveryService extends Service {
     }
     
     private void stopDiscoveryListener() {
+        Log.d(TAG, "Stopping discovery listener...");
         isRunning = false;
+        
+        // Close socket first to interrupt any blocking receive() calls
         if (socket != null && !socket.isClosed()) {
+            Log.d(TAG, "Closing UDP socket");
             socket.close();
         }
         
@@ -272,7 +336,16 @@ public class ParentDiscoveryService extends Service {
         if (listenerTask != null && !listenerTask.isDone()) {
             Log.d(TAG, "Cancelling UDP listener task");
             listenerTask.cancel(true); // Interrupt if running
+            
+            // Wait a bit for the task to finish
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
+        
+        Log.d(TAG, "Discovery listener stopped");
     }
     
     private void handleIncomingMessage(String message, InetAddress senderAddress, int senderPort) {
