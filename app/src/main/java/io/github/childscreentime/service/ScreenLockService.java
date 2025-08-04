@@ -32,7 +32,9 @@ import io.github.childscreentime.core.DeviceSecurityManager;
 import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.model.Credit;
+import io.github.childscreentime.service.ParentDiscoveryService;
 import io.github.childscreentime.ui.activities.MainActivity;
+import io.github.childscreentime.ui.activities.StatusActivity;
 import io.github.childscreentime.utils.Utils;
 
 /**
@@ -418,8 +420,20 @@ public class ScreenLockService extends Service {
             okButton.setOnClickListener(v -> {
                 String enteredPassword = passwordInput.getText().toString();
                 if ("253".equals(enteredPassword)) {
-                    Log.d(TAG, "Correct password entered - showing admin settings");
-                    showSettingsDialog();
+                    Log.d(TAG, "Correct password entered - extending time and showing status activity");
+                    
+                    // Extend time by 5 minutes
+                    TimeManager.directTimeExtension(this, 5);
+                    updateBlockingOverlay();
+                    
+                    // Finish the MainActivity that was kept for blocking
+                    MainActivity.finishBlockingInstance();
+                    
+                    // Show StatusActivity
+                    Intent statusIntent = new Intent(this, StatusActivity.class);
+                    statusIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    startActivity(statusIntent);
+                    
                 } else {
                     Log.d(TAG, "Incorrect password entered");
                     // Show error and return to main screen
@@ -488,24 +502,6 @@ public class ScreenLockService extends Service {
             Log.e(TAG, "Failed to show password error", e);
             // Fallback to main screen
             showMainBlockingContent();
-        }
-    }
-    
-    private void showSettingsDialog() {
-        try {
-            Log.d(TAG, "Attempting to launch OverlaySettingsActivity...");
-            
-            // Launch a transparent overlay activity that can properly host SecondFragment
-            Intent intent = new Intent(this, io.github.childscreentime.ui.activities.OverlaySettingsActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | 
-                           Intent.FLAG_ACTIVITY_CLEAR_TOP |
-                           Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT);
-            
-            startActivity(intent);
-            Log.d(TAG, "OverlaySettingsActivity launch request sent");
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to launch OverlaySettingsActivity", e);
         }
     }
     
