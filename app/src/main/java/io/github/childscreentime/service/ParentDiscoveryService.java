@@ -20,6 +20,10 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Foreground service that enables parent device discovery and remote control.
@@ -54,7 +58,8 @@ public class ParentDiscoveryService extends Service {
     private static final String KEY_ENABLED = "discovery_enabled";
     
     private DatagramSocket socket;
-    private Thread listenerThread;
+    private ExecutorService executorService;
+    private Future<?> listenerTask;
     private DeviceSecurityManager securityManager;
     private volatile boolean isRunning = false;
     
@@ -94,6 +99,10 @@ public class ParentDiscoveryService extends Service {
     public void onCreate() {
         super.onCreate();
         Log.i(TAG, "ParentDiscoveryService onCreate() called");
+        
+        // Initialize executor service for thread management
+        executorService = Executors.newSingleThreadExecutor(); // Single thread for UDP listener
+        
         try {
             securityManager = new DeviceSecurityManager(this);
             Log.d(TAG, "DeviceSecurityManager initialized successfully");
@@ -131,14 +140,24 @@ public class ParentDiscoveryService extends Service {
     public void onDestroy() {
         super.onDestroy();
         stopDiscoveryListener();
-        if (listenerThread != null && listenerThread.isAlive()) {
-            listenerThread.interrupt();
+        
+        // Shutdown executor service properly
+        if (executorService != null) {
+            Log.d(TAG, "Shutting down executor service");
+            executorService.shutdown();
             try {
-                listenerThread.join(5000); // Wait up to 5 seconds for thread to finish
+                // Wait up to 5 seconds for tasks to finish
+                if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                    Log.w(TAG, "Executor service did not terminate gracefully, forcing shutdown");
+                    executorService.shutdownNow();
+                }
             } catch (InterruptedException e) {
+                Log.w(TAG, "Interrupted while waiting for executor shutdown");
+                executorService.shutdownNow();
                 Thread.currentThread().interrupt();
             }
         }
+        Log.i(TAG, "ParentDiscoveryService destroyed");
     }
     
     @Override
@@ -180,29 +199,26 @@ public class ParentDiscoveryService extends Service {
         
         Log.i(TAG, "Starting UDP discovery listener on port " + DISCOVERY_PORT);
         
-        listenerThread = new Thread(() -> {
+        listenerTask = executorService.submit(() -> {
             try {
                 Log.d(TAG, "Creating UDP socket on port " + DISCOVERY_PORT);
                 socket = new DatagramSocket(DISCOVERY_PORT);
                 socket.setBroadcast(true);
-                socket.setSoTimeout(5000); // 5 second timeout to prevent indefinite blocking
+                socket.setSoTimeout(30000); // 30 second timeout for better battery life
                 isRunning = true;
                 
                 Log.i(TAG, "UDP socket created successfully, listening for packets...");
                 Log.d(TAG, "Socket broadcast enabled: " + socket.getBroadcast());
                 Log.d(TAG, "Socket timeout: " + socket.getSoTimeout() + "ms");
                 
-                // Send a test packet to verify the socket is working
-                sendTestPacket();
-                
-                while (isRunning && !socket.isClosed()) {
+                while (isRunning && !socket.isClosed() && !Thread.currentThread().isInterrupted()) {
                     try {
                         // Create fresh buffer for each packet to avoid data corruption
                         byte[] buffer = new byte[BUFFER_SIZE];
                         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                         
                         Log.v(TAG, "Waiting for UDP packet...");
-                        socket.receive(packet); // This will timeout after 5 seconds
+                        socket.receive(packet); // This will timeout after 30 seconds
                         
                         String message = new String(packet.getData(), 0, packet.getLength());
                         InetAddress senderAddress = packet.getAddress();
@@ -217,7 +233,7 @@ public class ParentDiscoveryService extends Service {
                         Log.v(TAG, "Socket timeout - no packets received, continuing...");
                         continue;
                     } catch (Exception e) {
-                        if (isRunning) {
+                        if (isRunning && !Thread.currentThread().isInterrupted()) {
                             Log.w(TAG, "Error receiving packet", e);
                             // Add small delay before retrying to prevent tight error loop
                             try {
@@ -231,19 +247,19 @@ public class ParentDiscoveryService extends Service {
                 }
                 
             } catch (Exception e) {
-                Log.e(TAG, "Failed to start discovery listener", e);
+                if (!Thread.currentThread().isInterrupted()) {
+                    Log.e(TAG, "Failed to start discovery listener", e);
+                }
                 isRunning = false;
             } finally {
                 if (socket != null && !socket.isClosed()) {
                     socket.close();
                 }
-                Log.i(TAG, "UDP listener thread terminated");
+                Log.i(TAG, "UDP listener task terminated");
             }
         });
         
-        listenerThread.setName("UDP-Discovery-Listener");
-        listenerThread.start();
-        Log.i(TAG, "Discovery listener thread started");
+        Log.i(TAG, "Discovery listener task submitted to executor");
     }
     
     private void stopDiscoveryListener() {
@@ -251,16 +267,19 @@ public class ParentDiscoveryService extends Service {
         if (socket != null && !socket.isClosed()) {
             socket.close();
         }
+        
+        // Cancel the listener task if it's running
+        if (listenerTask != null && !listenerTask.isDone()) {
+            Log.d(TAG, "Cancelling UDP listener task");
+            listenerTask.cancel(true); // Interrupt if running
+        }
     }
     
     private void handleIncomingMessage(String message, InetAddress senderAddress, int senderPort) {
         try {
             Log.d(TAG, "Processing message: '" + message + "' from " + senderAddress + ":" + senderPort);
             
-            if ("CST_TEST_PACKET".equals(message)) {
-                Log.i(TAG, "Received test packet - UDP reception is working!");
-                
-            } else if (DISCOVERY_REQUEST.equals(message)) {
+            if (DISCOVERY_REQUEST.equals(message)) {
                 Log.i(TAG, "Received discovery request, sending response");
                 sendResponse(DISCOVERY_RESPONSE, senderAddress, senderPort);
                 
@@ -387,34 +406,5 @@ public class ParentDiscoveryService extends Service {
         } catch (Exception e) {
             Log.w(TAG, "Failed to send response", e);
         }
-    }
-    
-    /**
-     * Send a test packet to verify UDP reception is working
-     */
-    private void sendTestPacket() {
-        new Thread(() -> {
-            try {
-                Thread.sleep(1000); // Wait 1 second for socket to be ready
-                Log.d(TAG, "Sending test packet to verify UDP reception");
-                
-                String testMessage = "CST_TEST_PACKET";
-                byte[] testData = testMessage.getBytes();
-                
-                // Send to localhost
-                InetAddress localhost = InetAddress.getByName("127.0.0.1");
-                DatagramPacket testPacket = new DatagramPacket(
-                    testData, testData.length, localhost, DISCOVERY_PORT);
-                
-                DatagramSocket testSocket = new DatagramSocket();
-                testSocket.send(testPacket);
-                testSocket.close();
-                
-                Log.d(TAG, "Test packet sent successfully");
-                
-            } catch (Exception e) {
-                Log.w(TAG, "Failed to send test packet", e);
-            }
-        }).start();
     }
 }
