@@ -17,14 +17,23 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
-import java.net.NetworkInterface;
-import java.net.Inet4Address;
-import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
- * Foreground service that listens for parent device discovery and commands
+ * Foreground service that enables parent device discovery and remote control.
+ * 
+ * This service listens for UDP broadcast messages from parent devices on port 8888
+ * and responds with device information. It also handles encrypted commands from
+ * authenticated parent devices using AES encryption with device ID-based keys.
+ * 
+ * Key features:
+ * - UDP broadcast discovery protocol
+ * - AES-CBC encrypted command/response communication
+ * - SHA-256 device ID-based key derivation
+ * - Foreground service for reliable operation
+ * - User-configurable enable/disable toggle
  */
 public class ParentDiscoveryService extends Service {
     
@@ -32,6 +41,8 @@ public class ParentDiscoveryService extends Service {
     private static final int NOTIFICATION_ID = 1001;
     private static final String CHANNEL_ID = "parent_discovery_channel";
     private static final int DISCOVERY_PORT = 8888;
+    private static final int SOCKET_TIMEOUT_MS = 60000; // 1 minute
+    private static final int BUFFER_SIZE = 1024;
     
     // Protocol messages
     private static final String DISCOVERY_REQUEST = "CST_PARENT_DISCOVERY";
@@ -59,14 +70,12 @@ public class ParentDiscoveryService extends Service {
         
         Intent serviceIntent = new Intent(context, ParentDiscoveryService.class);
         if (enabled) {
-            Log.i("ParentDiscoveryService", "Starting parent discovery service");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent);
             } else {
                 context.startService(serviceIntent);
             }
         } else {
-            Log.i("ParentDiscoveryService", "Stopping parent discovery service");
             context.stopService(serviceIntent);
         }
     }
@@ -75,54 +84,34 @@ public class ParentDiscoveryService extends Service {
      * Check if the service is currently running and listening
      */
     public static boolean isServiceRunning(Context context) {
-        if (!isDiscoveryEnabled(context)) {
-            return false;
-        }
-        
-        // This is a simple check - in a real app you might want to use ActivityManager
-        // For now, just check if discovery is enabled
-        return true;
+        return isDiscoveryEnabled(context);
     }
     
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.i(TAG, "onCreate() called");
         try {
-            Log.i(TAG, "Initializing DeviceSecurityManager...");
             securityManager = new DeviceSecurityManager(this);
-            Log.i(TAG, "DeviceSecurityManager initialized successfully");
         } catch (RuntimeException e) {
-            Log.e(TAG, "DeviceSecurityManager initialization failed - stopping service", e);
-            // Disable discovery if security fails
+            Log.e(TAG, "Security initialization failed", e);
             setDiscoveryEnabled(this, false);
             stopSelf();
             return;
         }
-        Log.i(TAG, "Creating executor service");
         executorService = Executors.newCachedThreadPool();
-        Log.i(TAG, "Creating notification channel");
         createNotificationChannel();
-        Log.i(TAG, "onCreate() completed");
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i(TAG, "onStartCommand called - discovery enabled: " + isDiscoveryEnabled(this));
-        
         if (!isDiscoveryEnabled(this)) {
-            Log.i(TAG, "Discovery not enabled, stopping service");
             stopSelf();
             return START_NOT_STICKY;
         }
         
-        Log.i(TAG, "Starting foreground notification");
         startForeground(NOTIFICATION_ID, createNotification());
-        
-        Log.i(TAG, "Calling startDiscoveryListener()");
         startDiscoveryListener();
         
-        Log.i(TAG, "onStartCommand completed successfully - returning START_STICKY");
         return START_STICKY;
     }
     
@@ -130,8 +119,16 @@ public class ParentDiscoveryService extends Service {
     public void onDestroy() {
         super.onDestroy();
         stopDiscoveryListener();
-        if (executorService != null) {
+        if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdown();
+            try {
+                if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
         }
     }
     
@@ -167,75 +164,39 @@ public class ParentDiscoveryService extends Service {
     }
     
     private void startDiscoveryListener() {
-        Log.i(TAG, "startDiscoveryListener() called - isRunning: " + isRunning);
-        if (isRunning) {
-            Log.i(TAG, "Already running, returning early");
-            return;
-        }
+        if (isRunning) return;
         
-        Log.i(TAG, "Submitting discovery listener task to executor");
         executorService.execute(() -> {
-            Log.i(TAG, "Discovery listener thread started");
             try {
-                Log.d(TAG, "Attempting to bind UDP socket on port " + DISCOVERY_PORT);
-                
-                // Log network interface information
-                try {
-                    Log.i(TAG, "Enumerating network interfaces...");
-                    for (NetworkInterface netIf : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                        if (!netIf.isLoopback() && netIf.isUp()) {
-                            for (InetAddress addr : Collections.list(netIf.getInetAddresses())) {
-                                if (addr instanceof Inet4Address) {
-                                    Log.i(TAG, "Network interface " + netIf.getName() + ": " + addr.getHostAddress());
-                                }
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    Log.w(TAG, "Could not enumerate network interfaces", e);
-                }
-                
-                Log.i(TAG, "Creating DatagramSocket on port " + DISCOVERY_PORT);
                 socket = new DatagramSocket(DISCOVERY_PORT);
-                socket.setBroadcast(true); // Allow receiving broadcast packets
+                socket.setBroadcast(true);
                 isRunning = true;
                 
-                Log.i(TAG, "Parent discovery service started successfully on port " + DISCOVERY_PORT);
-                Log.i(TAG, "Socket bound to: " + socket.getLocalAddress() + ":" + socket.getLocalPort());
-                
-                byte[] buffer = new byte[1024];
-                Log.i(TAG, "Entering UDP receive loop");
+                byte[] buffer = new byte[BUFFER_SIZE];
                 
                 while (isRunning && !socket.isClosed()) {
                     try {
                         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                        Log.v(TAG, "Waiting for UDP packet on port " + DISCOVERY_PORT + "...");
-                        
-                        // Set a timeout so we can periodically log that we're still listening
-                        socket.setSoTimeout(30000); // 30 second timeout
+                        socket.setSoTimeout(SOCKET_TIMEOUT_MS);
                         socket.receive(packet);
                         
                         String message = new String(packet.getData(), 0, packet.getLength());
                         InetAddress senderAddress = packet.getAddress();
                         int senderPort = packet.getPort();
                         
-                        Log.i(TAG, "Received UDP packet: '" + message + "' from " + senderAddress + ":" + senderPort);
-                        
                         handleIncomingMessage(message, senderAddress, senderPort);
                         
                     } catch (SocketTimeoutException e) {
-                        // This is normal - just means no packet received in timeout period
-                        Log.v(TAG, "Still listening for discovery packets on port " + DISCOVERY_PORT);
+                        // Normal timeout - continue listening
                     } catch (Exception e) {
                         if (isRunning) {
-                            Log.e(TAG, "Error receiving packet", e);
+                            Log.w(TAG, "Error receiving packet", e);
                         }
                     }
                 }
                 
             } catch (Exception e) {
-                Log.e(TAG, "Failed to start discovery listener on port " + DISCOVERY_PORT, e);
-                // Try to notify user that service failed
+                Log.e(TAG, "Failed to start discovery listener", e);
                 isRunning = false;
             }
         });
@@ -250,67 +211,61 @@ public class ParentDiscoveryService extends Service {
     
     private void handleIncomingMessage(String message, InetAddress senderAddress, int senderPort) {
         try {
-            Log.i(TAG, "Processing message: '" + message + "' from " + senderAddress + ":" + senderPort);
-            
             if (DISCOVERY_REQUEST.equals(message)) {
-                // Respond to discovery request
-                Log.i(TAG, "Received discovery request, sending response");
                 sendResponse(DISCOVERY_RESPONSE, senderAddress, senderPort);
-                Log.i(TAG, "Responded to discovery request from " + senderAddress);
                 
             } else if (message.startsWith(COMMAND_PREFIX)) {
-                // Handle encrypted command
                 String encryptedCommand = message.substring(COMMAND_PREFIX.length());
                 
                 try {
                     String decryptedCommand = securityManager.decryptMessage(encryptedCommand);
-                    Log.d(TAG, "Received encrypted command: " + decryptedCommand);
-                    
                     String response = processCommand(decryptedCommand);
                     String encryptedResponse = securityManager.encryptMessage(response);
                     
                     sendResponse(RESPONSE_PREFIX + encryptedResponse, senderAddress, senderPort);
                 } catch (RuntimeException e) {
-                    Log.e(TAG, "Encryption/decryption failed - disabling parent discovery service", e);
-                    // Stop the service if encryption fails
+                    Log.e(TAG, "Encryption/decryption failed", e);
                     setDiscoveryEnabled(this, false);
                     stopSelf();
                 }
-            } else {
-                Log.w(TAG, "Unknown message format: " + message);
             }
             
         } catch (Exception e) {
-            Log.e(TAG, "Error handling incoming message", e);
+            Log.w(TAG, "Error handling message", e);
         }
     }
     
     private String processCommand(String command) {
-        // Process different commands from parent
-        switch (command) {
-            case "GET_STATUS":
-                return "STATUS_OK|Device ID: " + securityManager.getDeviceId();
-                
-            case "GET_DEVICE_INFO":
-                return "DEVICE_INFO|" + android.os.Build.MODEL + "|" + android.os.Build.VERSION.RELEASE;
-                
-            case "PING":
-                return "PONG";
-                
-            case "GET_TIME_LEFT":
-                // TODO: Integrate with TimeManager to get actual time left
-                return "TIME_LEFT|30";
-                
-            case "LOCK_DEVICE":
-                // TODO: Integrate with screen locking functionality
-                return "DEVICE_LOCKED|OK";
-                
-            case "UNLOCK_DEVICE":
-                // TODO: Integrate with screen unlocking functionality
-                return "DEVICE_UNLOCKED|OK";
-                
-            default:
-                return "ERROR|Unknown command: " + command;
+        try {
+            switch (command) {
+                case "GET_STATUS":
+                    return "STATUS_OK|Device ID: " + securityManager.getDeviceId();
+                    
+                case "GET_DEVICE_INFO":
+                    return String.format("DEVICE_INFO|%s|%s", 
+                        android.os.Build.MODEL, android.os.Build.VERSION.RELEASE);
+                    
+                case "PING":
+                    return "PONG";
+                    
+                case "GET_TIME_LEFT":
+                    // TODO: Integrate with TimeManager to get actual time left
+                    return "TIME_LEFT|30";
+                    
+                case "LOCK_DEVICE":
+                    // TODO: Integrate with screen locking functionality
+                    return "DEVICE_LOCKED|OK";
+                    
+                case "UNLOCK_DEVICE":
+                    // TODO: Integrate with screen unlocking functionality
+                    return "DEVICE_UNLOCKED|OK";
+                    
+                default:
+                    return "ERROR|Unknown command";
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error processing command: " + command, e);
+            return "ERROR|Command processing failed";
         }
     }
     
@@ -325,10 +280,8 @@ public class ParentDiscoveryService extends Service {
                 responseSocket.send(responsePacket);
                 responseSocket.close();
                 
-                Log.d(TAG, "Sent response: " + response + " to " + address + ":" + port);
-                
             } catch (Exception e) {
-                Log.e(TAG, "Failed to send response", e);
+                Log.w(TAG, "Failed to send response", e);
             }
         });
     }

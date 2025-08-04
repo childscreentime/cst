@@ -109,10 +109,10 @@ public class SecondFragment extends Fragment {
         if (isEnabled) {
             boolean isRunning = ParentDiscoveryService.isServiceRunning(getContext());
             if (isRunning) {
-                statusView.setText("Parent discovery active - listening on port 8888");
+                statusView.setText("Ready for parent device discovery");
                 statusView.setTextColor(0xFF00AA00); // Green color
             } else {
-                statusView.setText("Parent discovery enabled but service not running");
+                statusView.setText("Discovery service starting...");
                 statusView.setTextColor(0xFFFF8800); // Orange color
             }
         } else {
