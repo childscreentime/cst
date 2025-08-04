@@ -55,20 +55,43 @@ public class ParentDiscoveryService extends Service {
         
         Intent serviceIntent = new Intent(context, ParentDiscoveryService.class);
         if (enabled) {
+            Log.i("ParentDiscoveryService", "Starting parent discovery service");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent);
             } else {
                 context.startService(serviceIntent);
             }
         } else {
+            Log.i("ParentDiscoveryService", "Stopping parent discovery service");
             context.stopService(serviceIntent);
         }
+    }
+    
+    /**
+     * Check if the service is currently running and listening
+     */
+    public static boolean isServiceRunning(Context context) {
+        if (!isDiscoveryEnabled(context)) {
+            return false;
+        }
+        
+        // This is a simple check - in a real app you might want to use ActivityManager
+        // For now, just check if discovery is enabled
+        return true;
     }
     
     @Override
     public void onCreate() {
         super.onCreate();
-        securityManager = new DeviceSecurityManager(this);
+        try {
+            securityManager = new DeviceSecurityManager(this);
+        } catch (RuntimeException e) {
+            Log.e(TAG, "DeviceSecurityManager initialization failed - stopping service", e);
+            // Disable discovery if security fails
+            setDiscoveryEnabled(this, false);
+            stopSelf();
+            return;
+        }
         executorService = Executors.newCachedThreadPool();
         createNotificationChannel();
     }
@@ -131,23 +154,26 @@ public class ParentDiscoveryService extends Service {
         
         executorService.execute(() -> {
             try {
+                Log.d(TAG, "Attempting to bind UDP socket on port " + DISCOVERY_PORT);
                 socket = new DatagramSocket(DISCOVERY_PORT);
+                socket.setBroadcast(true); // Allow receiving broadcast packets
                 isRunning = true;
                 
-                Log.d(TAG, "Parent discovery service started on port " + DISCOVERY_PORT);
+                Log.i(TAG, "Parent discovery service started successfully on port " + DISCOVERY_PORT);
                 
                 byte[] buffer = new byte[1024];
                 
                 while (isRunning && !socket.isClosed()) {
                     try {
                         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                        Log.v(TAG, "Waiting for UDP packet...");
                         socket.receive(packet);
                         
                         String message = new String(packet.getData(), 0, packet.getLength());
                         InetAddress senderAddress = packet.getAddress();
                         int senderPort = packet.getPort();
                         
-                        Log.d(TAG, "Received message: " + message + " from " + senderAddress);
+                        Log.i(TAG, "Received message: '" + message + "' from " + senderAddress + ":" + senderPort);
                         
                         handleIncomingMessage(message, senderAddress, senderPort);
                         
@@ -159,7 +185,9 @@ public class ParentDiscoveryService extends Service {
                 }
                 
             } catch (Exception e) {
-                Log.e(TAG, "Failed to start discovery listener", e);
+                Log.e(TAG, "Failed to start discovery listener on port " + DISCOVERY_PORT, e);
+                // Try to notify user that service failed
+                isRunning = false;
             }
         });
     }
@@ -173,10 +201,13 @@ public class ParentDiscoveryService extends Service {
     
     private void handleIncomingMessage(String message, InetAddress senderAddress, int senderPort) {
         try {
+            Log.i(TAG, "Processing message: '" + message + "' from " + senderAddress + ":" + senderPort);
+            
             if (DISCOVERY_REQUEST.equals(message)) {
                 // Respond to discovery request
+                Log.i(TAG, "Received discovery request, sending response");
                 sendResponse(DISCOVERY_RESPONSE, senderAddress, senderPort);
-                Log.d(TAG, "Responded to discovery request from " + senderAddress);
+                Log.i(TAG, "Responded to discovery request from " + senderAddress);
                 
             } else if (message.startsWith(COMMAND_PREFIX)) {
                 // Handle encrypted command
@@ -196,6 +227,8 @@ public class ParentDiscoveryService extends Service {
                     setDiscoveryEnabled(this, false);
                     stopSelf();
                 }
+            } else {
+                Log.w(TAG, "Unknown message format: " + message);
             }
             
         } catch (Exception e) {

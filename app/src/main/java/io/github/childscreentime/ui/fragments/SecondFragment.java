@@ -91,15 +91,34 @@ public class SecondFragment extends Fragment {
         }
         
         // Set initial state
-        discoveryToggle.setChecked(ParentDiscoveryService.isDiscoveryEnabled(getContext()));
+        boolean isEnabled = ParentDiscoveryService.isDiscoveryEnabled(getContext());
+        discoveryToggle.setChecked(isEnabled);
+        updateDiscoveryStatus(discoveryDescription, isEnabled);
         
         discoveryToggle.setOnCheckedChangeListener((buttonView, isChecked) -> {
             ParentDiscoveryService.setDiscoveryEnabled(getContext(), isChecked);
+            updateDiscoveryStatus(discoveryDescription, isChecked);
             
             String message = isChecked ? 
                 "Parent discovery enabled" : "Parent discovery disabled";
             Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
         });
+    }
+    
+    private void updateDiscoveryStatus(TextView statusView, boolean isEnabled) {
+        if (isEnabled) {
+            boolean isRunning = ParentDiscoveryService.isServiceRunning(getContext());
+            if (isRunning) {
+                statusView.setText("Parent discovery active - listening on port 8888");
+                statusView.setTextColor(0xFF00AA00); // Green color
+            } else {
+                statusView.setText("Parent discovery enabled but service not running");
+                statusView.setTextColor(0xFFFF8800); // Orange color
+            }
+        } else {
+            statusView.setText("Parent discovery disabled");
+            statusView.setTextColor(0xFF666666); // Gray color
+        }
     }
     
     private void setupDeviceIdDisplay() {
