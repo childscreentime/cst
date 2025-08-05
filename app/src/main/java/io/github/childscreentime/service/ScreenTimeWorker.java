@@ -11,6 +11,7 @@ import androidx.work.WorkerParameters;
 import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.model.Credit;
+import io.github.childscreentime.service.ParentDiscoveryService;
 
 /**
  * Background worker that periodically checks screen time and updates blocking state
@@ -63,12 +64,43 @@ public class ScreenTimeWorker extends Worker {
                 Log.d(TAG, "Blocking state unchanged: " + isNowBlocked + " - no overlay update needed");
             }
             
+            // Check and restart ParentDiscoveryService if needed (protection against termination)
+            checkAndRestartParentDiscoveryService(context);
+            
             Log.d(TAG, "=== ScreenTimeWorker completed successfully ===");
             return Result.success();
             
         } catch (Exception e) {
             Log.e(TAG, "Error in ScreenTimeWorker", e);
             return Result.retry();
+        }
+    }
+    
+    /**
+     * Check if ParentDiscoveryService should be running but isn't, and restart it if needed.
+     * This provides protection against aggressive termination by game mode apps.
+     */
+    private void checkAndRestartParentDiscoveryService(Context context) {
+        try {
+            // Check if parent discovery should be enabled
+            if (!ParentDiscoveryService.isDiscoveryEnabled(context)) {
+                Log.v(TAG, "Parent discovery disabled - no action needed");
+                return;
+            }
+            
+            // Check if service is actually running
+            if (!ParentDiscoveryService.isServiceActuallyRunning()) {
+                Log.w(TAG, "ParentDiscoveryService should be running but isn't - restarting from ScreenTimeWorker");
+                
+                // Restart the service
+                ParentDiscoveryService.setDiscoveryEnabled(context, true);
+                Log.i(TAG, "Restarted ParentDiscoveryService from ScreenTimeWorker");
+            } else {
+                Log.v(TAG, "ParentDiscoveryService running correctly");
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking/restarting ParentDiscoveryService from ScreenTimeWorker", e);
         }
     }
 }
