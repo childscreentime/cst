@@ -65,11 +65,49 @@ public class ScreenTimeApplication extends Application implements SharedPreferen
         initializePreferences();
         initializeNotifications();
         checkOverlayPermission();
-        startBackgroundMonitoring();
+        
+        // Only start background monitoring in the main process
+        if (isMainProcess()) {
+            startBackgroundMonitoring();
+        } else {
+            Log.d(TAG, "Not main process - skipping background monitoring setup");
+        }
+    }
+    
+    private boolean isMainProcess() {
+        String currentProcessName = getCurrentProcessName();
+        String packageName = getPackageName();
+        return packageName.equals(currentProcessName);
+    }
+    
+    private String getCurrentProcessName() {
+        try {
+            android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+            if (am != null) {
+                for (android.app.ActivityManager.RunningAppProcessInfo processInfo : am.getRunningAppProcesses()) {
+                    if (processInfo.pid == android.os.Process.myPid()) {
+                        return processInfo.processName;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to get current process name", e);
+        }
+        return getPackageName(); // Fallback to package name
     }
     
     private void initializeServices() {
-        this.workManager = WorkManager.getInstance(this);
+        try {
+            // Only initialize WorkManager in the main process
+            if (isMainProcess()) {
+                this.workManager = WorkManager.getInstance(this);
+                Log.d(TAG, "WorkManager initialized in main process");
+            } else {
+                Log.d(TAG, "Skipping WorkManager initialization in separate process");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to initialize WorkManager", e);
+        }
     }
     
     private void initializeNotifications() {
@@ -96,6 +134,11 @@ public class ScreenTimeApplication extends Application implements SharedPreferen
     
     public void startBackgroundMonitoring() {
         Log.d(TAG, "Starting background monitoring");
+        
+        if (workManager == null) {
+            Log.w(TAG, "WorkManager not initialized - cannot start background monitoring");
+            return;
+        }
         
         // Start the foreground service for persistent blocking
         ScreenLockService.startService(this);

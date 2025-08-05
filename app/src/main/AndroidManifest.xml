@@ -67,7 +67,6 @@
             android:name="io.github.childscreentime.service.ParentDiscoveryService"
             android:enabled="true"
             android:exported="false"
-            android:process=":discovery"
             android:foregroundServiceType="connectedDevice">
         </service>
         
