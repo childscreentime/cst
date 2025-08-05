@@ -158,7 +158,7 @@ public class ParentDiscoveryService extends Service {
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i(TAG, "ParentDiscoveryService onStartCommand() called");
+        Log.i(TAG, "ParentDiscoveryService onStartCommand() called with flags: " + flags + ", startId: " + startId);
         boolean isEnabled = isDiscoveryEnabled(this);
         Log.i(TAG, "Discovery enabled: " + isEnabled);
         
@@ -173,7 +173,8 @@ public class ParentDiscoveryService extends Service {
         startDiscoveryListener();
         
         Log.i(TAG, "ParentDiscoveryService started successfully");
-        return START_REDELIVER_INTENT; // Changed from START_STICKY for better restart behavior
+        // Use START_STICKY with enhanced restart behavior to survive game mode termination
+        return START_STICKY; // Service will be restarted if killed by system
     }
     
     @Override
@@ -214,17 +215,64 @@ public class ParentDiscoveryService extends Service {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         super.onTaskRemoved(rootIntent);
-        Log.w(TAG, "ParentDiscoveryService task removed - attempting to restart if enabled");
+        Log.w(TAG, "ParentDiscoveryService task removed - implementing aggressive restart strategy");
         
-        // If discovery is enabled, restart the service
+        // If discovery is enabled, restart the service with multiple fallback strategies
         if (isDiscoveryEnabled(this)) {
-            Log.i(TAG, "Restarting ParentDiscoveryService after task removal");
-            Intent restartIntent = new Intent(this, ParentDiscoveryService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(restartIntent);
-            } else {
-                startService(restartIntent);
+            Log.i(TAG, "Restarting ParentDiscoveryService with aggressive anti-termination strategy");
+            
+            // Use AlarmManager for multiple restart attempts to combat game mode termination
+            android.app.AlarmManager alarmManager = (android.app.AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            
+            if (alarmManager != null) {
+                // Primary restart: 3-second delay to avoid immediate re-termination
+                scheduleRestart(alarmManager, 3000, 1);
+                
+                // Secondary restart: 10-second delay as fallback
+                scheduleRestart(alarmManager, 10000, 2);
+                
+                // Tertiary restart: 30-second delay for persistent games
+                scheduleRestart(alarmManager, 30000, 3);
+                
+                Log.i(TAG, "Scheduled triple restart strategy: 3s, 10s, 30s");
             }
+            
+            // Also try immediate restart as backup
+            try {
+                Intent immediateRestart = new Intent(this, ParentDiscoveryService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(immediateRestart);
+                } else {
+                    startService(immediateRestart);
+                }
+                Log.i(TAG, "Attempted immediate service restart");
+            } catch (Exception e) {
+                Log.w(TAG, "Immediate restart failed, relying on AlarmManager", e);
+            }
+        }
+    }
+    
+    private void scheduleRestart(android.app.AlarmManager alarmManager, long delayMs, int attempt) {
+        try {
+            Intent restartIntent = new Intent(this, ParentDiscoveryService.class);
+            android.app.PendingIntent pendingIntent = android.app.PendingIntent.getService(
+                this, 
+                attempt, // Use attempt number as unique request code
+                restartIntent, 
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT | 
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? android.app.PendingIntent.FLAG_IMMUTABLE : 0)
+            );
+            
+            long restartTime = System.currentTimeMillis() + delayMs;
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, restartTime, pendingIntent);
+            } else {
+                alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, restartTime, pendingIntent);
+            }
+            Log.i(TAG, "Scheduled restart attempt " + attempt + " in " + delayMs + "ms");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to schedule restart attempt " + attempt, e);
         }
     }
     
@@ -233,13 +281,15 @@ public class ParentDiscoveryService extends Service {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.parent_discovery_service),
-                NotificationManager.IMPORTANCE_DEFAULT // Increased from LOW to resist termination
+                NotificationManager.IMPORTANCE_HIGH // MAX importance to resist game mode termination
             );
             channel.setDescription("Service for parent device discovery and communication");
             channel.setShowBadge(false); // Don't show badge
             channel.enableLights(false); // No LED light
             channel.enableVibration(false); // No vibration
             channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            channel.setBypassDnd(true); // Bypass Do Not Disturb
+            channel.setSound(null, null); // No sound to avoid distraction
             
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
@@ -249,18 +299,20 @@ public class ParentDiscoveryService extends Service {
     }
     
     private Notification createNotification() {
-        // Create a more persistent notification with higher priority to resist termination
+        // Create a maximum priority notification to resist game mode termination
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.parent_discovery_service))
             .setContentText("Ready for parent device discovery")
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT) // Increased from LOW
+            .setPriority(NotificationCompat.PRIORITY_MAX) // Maximum priority
             .setOngoing(true)
             .setAutoCancel(false) // Prevent accidental dismissal
             .setShowWhen(false) // Don't show timestamp
             .setLocalOnly(true) // Keep notification local
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setSound(null) // No sound to avoid game interruption
+            .setOnlyAlertOnce(true) // Don't repeatedly alert
             .build();
     }
     

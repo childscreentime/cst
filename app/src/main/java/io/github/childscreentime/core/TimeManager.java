@@ -310,14 +310,37 @@ public class TimeManager {
     }
     
     /**
-     * Check if ParentDiscoveryService should be running but isn't, and restart it if needed
+     * Check if ParentDiscoveryService should be running but isn't, and restart it if needed.
+     * Enhanced to be more aggressive against game mode app termination.
      */
     private static void checkAndRestartParentDiscoveryService(Context context) {
         try {
-            // Use the lightweight check that only restarts if actually needed
-            ParentDiscoveryService.ensureServiceRunning(context);
+            // Enhanced check that also verifies the service is actually responsive
+            if (ParentDiscoveryService.isDiscoveryEnabled(context)) {
+                boolean isRunning = ParentDiscoveryService.isServiceActuallyRunning();
+                Log.d(TAG, "ParentDiscoveryService status check - enabled: true, running: " + isRunning);
+                
+                if (!isRunning) {
+                    Log.w(TAG, "ParentDiscoveryService should be running but isn't - forcing restart");
+                    // Force restart with enhanced anti-termination strategy
+                    ParentDiscoveryService.ensureServiceRunning(context);
+                    
+                    // Give it a moment to start, then verify
+                    try {
+                        Thread.sleep(1000);
+                        boolean restarted = ParentDiscoveryService.isServiceActuallyRunning();
+                        Log.i(TAG, "Service restart attempt - now running: " + restarted);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else {
+                    Log.d(TAG, "ParentDiscoveryService running correctly");
+                }
+            } else {
+                Log.d(TAG, "ParentDiscoveryService disabled - no action needed");
+            }
         } catch (Exception e) {
-            Log.e(TAG, "Error checking/restarting ParentDiscoveryService", e);
+            Log.e(TAG, "Error in enhanced ParentDiscoveryService check/restart", e);
         }
     }
 }
