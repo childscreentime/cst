@@ -583,9 +583,13 @@ public class ScreenLockService extends Service {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 "Screen Lock Service",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT // Increased from LOW to resist termination
             );
             channel.setDescription("Monitoring screen time and blocking when limit exceeded");
+            channel.setShowBadge(false); // Don't show badge
+            channel.enableLights(false); // No LED light
+            channel.enableVibration(false); // No vibration
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
@@ -612,6 +616,11 @@ public class ScreenLockService extends Service {
             .setContentIntent(pendingIntent)
             .setAutoCancel(false)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT) // Increased from default low
+            .setShowWhen(false) // Don't show timestamp
+            .setLocalOnly(true) // Keep notification local
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build();
     }
     

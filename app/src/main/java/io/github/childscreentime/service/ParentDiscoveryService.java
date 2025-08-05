@@ -173,7 +173,7 @@ public class ParentDiscoveryService extends Service {
         startDiscoveryListener();
         
         Log.i(TAG, "ParentDiscoveryService started successfully");
-        return START_STICKY;
+        return START_REDELIVER_INTENT; // Changed from START_STICKY for better restart behavior
     }
     
     @Override
@@ -211,14 +211,35 @@ public class ParentDiscoveryService extends Service {
         return null;
     }
     
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        super.onTaskRemoved(rootIntent);
+        Log.w(TAG, "ParentDiscoveryService task removed - attempting to restart if enabled");
+        
+        // If discovery is enabled, restart the service
+        if (isDiscoveryEnabled(this)) {
+            Log.i(TAG, "Restarting ParentDiscoveryService after task removal");
+            Intent restartIntent = new Intent(this, ParentDiscoveryService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(restartIntent);
+            } else {
+                startService(restartIntent);
+            }
+        }
+    }
+    
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.parent_discovery_service),
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT // Increased from LOW to resist termination
             );
             channel.setDescription("Service for parent device discovery and communication");
+            channel.setShowBadge(false); // Don't show badge
+            channel.enableLights(false); // No LED light
+            channel.enableVibration(false); // No vibration
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
@@ -228,12 +249,18 @@ public class ParentDiscoveryService extends Service {
     }
     
     private Notification createNotification() {
+        // Create a more persistent notification with higher priority to resist termination
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.parent_discovery_service))
             .setContentText("Ready for parent device discovery")
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT) // Increased from LOW
             .setOngoing(true)
+            .setAutoCancel(false) // Prevent accidental dismissal
+            .setShowWhen(false) // Don't show timestamp
+            .setLocalOnly(true) // Keep notification local
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build();
     }
     
