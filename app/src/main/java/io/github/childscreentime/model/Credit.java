@@ -3,12 +3,12 @@ package io.github.childscreentime.model;
 public class Credit {
     public long fiveExtends;
     public long minutes;
-    public long oneExtends;
+    public long tenExtends;
 
-    public Credit(long minutes, long fiveExtends, long oneExtends) {
+    public Credit(long minutes, long fiveExtends, long tenExtends) {
         this.minutes = minutes;
         this.fiveExtends = fiveExtends;
-        this.oneExtends = oneExtends;
+        this.tenExtends = tenExtends;
     }
 
     public static Credit fromString(String string) {
@@ -25,11 +25,11 @@ public class Credit {
     }
 
     public String toString() {
-        return String.format("Credit(minutes %s, fiveExtends %s, oneExtends %s)", new Object[]{Long.valueOf(this.minutes), Long.valueOf(this.fiveExtends), Long.valueOf(this.oneExtends)});
+        return String.format("Credit(minutes %s, fiveExtends %s, tenExtends %s)", new Object[]{Long.valueOf(this.minutes), Long.valueOf(this.fiveExtends), Long.valueOf(this.tenExtends)});
     }
 
     public String asString() {
-        return String.format("%s,%s,%s", new Object[]{Long.valueOf(this.minutes), Long.valueOf(this.fiveExtends), Long.valueOf(this.oneExtends)});
+        return String.format("%s,%s,%s", new Object[]{Long.valueOf(this.minutes), Long.valueOf(this.fiveExtends), Long.valueOf(this.tenExtends)});
     }
 
     public Credit getCreditNoMoreThen(long minutes2) {

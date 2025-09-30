@@ -99,7 +99,7 @@ public class FirstFragment extends Fragment {
         }
         
         try {
-            binding.buttonFirst.setEnabled(credit.oneExtends > 0);
+            binding.buttonFirst.setEnabled(credit.tenExtends > 0);
             binding.buttonExtfive.setEnabled(credit.fiveExtends > 0);
             
             // Enhanced display with debug info

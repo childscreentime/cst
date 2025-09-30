@@ -56,7 +56,7 @@
     <string name="device_admin_disabled">Device Admin Disabled</string>
     <string name="first_fragment_label">Pause</string>
     <string name="exit">Exit</string>
-    <string name="extone">1</string>
+    <string name="extone">10</string>
     
     <!-- Parent Discovery Feature -->
     <string name="enable_parent_discovery">Enable Parent Discovery</string>

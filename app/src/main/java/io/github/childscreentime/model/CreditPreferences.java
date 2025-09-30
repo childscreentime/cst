@@ -6,7 +6,7 @@ import io.github.childscreentime.utils.Utils;
 
 
 public class CreditPreferences {
-    public static final Credit DEFAULT_CREDIT = new Credit(35, 2, 5);
+    public static final Credit DEFAULT_CREDIT = new Credit(20, 1, 1);
     private final String key;
     private final SharedPreferences.OnSharedPreferenceChangeListener listener;
     private final SharedPreferences sharedPreferences;

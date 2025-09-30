@@ -17,7 +17,6 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -28,14 +27,11 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import io.github.childscreentime.R;
-import io.github.childscreentime.core.DeviceSecurityManager;
 import io.github.childscreentime.core.ScreenTimeApplication;
 import io.github.childscreentime.core.TimeManager;
 import io.github.childscreentime.model.Credit;
-import io.github.childscreentime.service.ParentDiscoveryService;
 import io.github.childscreentime.ui.activities.MainActivity;
 import io.github.childscreentime.ui.activities.StatusActivity;
-import io.github.childscreentime.utils.Utils;
 
 /**
  * Foreground service that monitors screen time and shows unescapable overlay when blocked
@@ -260,18 +256,18 @@ public class ScreenLockService extends Service {
     private void setupFirstFragmentButtons(View firstFragmentView) {
         if (firstFragmentView == null) return;
         
-        Button extend1Button = firstFragmentView.findViewById(R.id.button_first);
+        Button extend10Button = firstFragmentView.findViewById(R.id.button_first);
         Button extend5Button = firstFragmentView.findViewById(R.id.button_extfive);
         
         Credit credit = app.getTodayCredit();
         
-        if (extend1Button != null) {
-            boolean canExtend1 = credit != null && credit.oneExtends > 0;
-            extend1Button.setEnabled(canExtend1);
+        if (extend10Button != null) {
+            boolean canExtend10 = credit != null && credit.tenExtends > 0;
+            extend10Button.setEnabled(canExtend10);
             
-            extend1Button.setOnClickListener(v -> {
-                Log.d(TAG, "1-minute extension requested from overlay");
-                if (TimeManager.extendTimeWithCredits(this, 1)) {
+            extend10Button.setOnClickListener(v -> {
+                Log.d(TAG, "10-minute extension requested from overlay");
+                if (TimeManager.extendTimeWithCredits(this, 10)) {
                     updateBlockingOverlay();
                     // Finish the MainActivity that was kept for blocking
                     MainActivity.finishBlockingInstance();
@@ -348,13 +344,14 @@ public class ScreenLockService extends Service {
         
         TextView durationTextView = firstFragmentView.findViewById(R.id.duration);
         if (durationTextView == null) return;
-        
-        Credit credit = app.getTodayCredit();
-        if (credit != null) {
-            String displayText = String.format(java.util.Locale.ROOT, "Used: %d min | Limit: %d min\nBlocked: %s", 
-                app.getDuration(), credit.minutes, app.isBlocked() ? "YES" : "NO");
-            durationTextView.setText(displayText);
-        }
+        durationTextView.setText("RESTRICTED");
+        // Show hard coded RESTRICTED text for smart kids which negotiate based on actual duration
+//        Credit credit = app.getTodayCredit();
+//        if (credit != null) {
+//            String displayText = String.format(java.util.Locale.ROOT, "Used: %d min | Limit: %d min\nBlocked: %s",
+//                app.getDuration(), credit.minutes, app.isBlocked() ? "YES" : "NO");
+//            durationTextView.setText(displayText);
+//        }
     }
     
     // Keep the old method for compatibility with existing calls

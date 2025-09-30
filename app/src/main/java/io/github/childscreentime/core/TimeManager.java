@@ -1,8 +1,6 @@
 package io.github.childscreentime.core;
 
 import android.content.Context;
-import android.content.Intent;
-import android.os.Build;
 import android.util.Log;
 
 import java.util.Calendar;
@@ -179,14 +177,14 @@ public class TimeManager {
             int grantedMinutes = 0;
             
             // Check available extensions
-            if (requestedMinutes < 5 && credit.oneExtends > 0) {
-                credit.oneExtends--;
-                grantedMinutes = 1;
-                Log.d(TAG, "Granted 1-minute extension. Remaining: " + credit.oneExtends);
-            } else if (credit.fiveExtends > 0) {
+            if (requestedMinutes <= 5 && credit.fiveExtends > 0) {
                 credit.fiveExtends--;
                 grantedMinutes = 5;
                 Log.d(TAG, "Granted 5-minute extension. Remaining: " + credit.fiveExtends);
+            } else if (credit.tenExtends > 0) {
+                credit.tenExtends--;
+                grantedMinutes = 10;
+                Log.d(TAG, "Granted 10-minute extension. Remaining: " + credit.fiveExtends);
             } else {
                 Log.d(TAG, "No extensions available");
                 return false;
