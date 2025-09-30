@@ -13,7 +13,7 @@ A powerful, open source parental control application for Android that provides u
 - **Unescapable Screen Blocking**: Creates fullscreen overlay that cannot be bypassed when time limits are reached
 - **Precise Usage Tracking**: Real-time monitoring with minute-by-minute accuracy
 - **Credit-Based Time Management**: Flexible daily allowances with extension options
-- **Password-Protected Admin**: Secure settings access (default: 253)
+- **Password-Protected Admin**: Secure settings access (default: 3443)
 - **Hardware Key Blocking**: Disables home, back, and recent apps during blocking
 - **Intelligent Media Pausing**: Automatically pauses videos, games, and music
 
@@ -63,7 +63,7 @@ A powerful, open source parental control application for Android that provides u
    - Test the blocking functionality
 
 3. **Secure Admin Access**
-   - Default admin password is `253`
+   - Default admin password is `3443`
    - Change this in production deployments
 
 ## 📱 Architecture

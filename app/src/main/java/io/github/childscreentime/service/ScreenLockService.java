@@ -419,7 +419,7 @@ public class ScreenLockService extends Service {
             okButton.setTextColor(0xFFFFFFFF);
             okButton.setOnClickListener(v -> {
                 String enteredPassword = passwordInput.getText().toString();
-                if ("253".equals(enteredPassword)) {
+                if ("3443".equals(enteredPassword)) {
                     Log.d(TAG, "Correct password entered - extending time and showing status activity");
                     
                     // Extend time by 5 minutes

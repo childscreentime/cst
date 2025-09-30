@@ -13,7 +13,7 @@ import io.github.childscreentime.R;
  */
 public class AdminPasswordDialog {
     private static final String TAG = "AdminPasswordDialog";
-    private static final String ADMIN_PASSWORD = "253";
+    private static final String ADMIN_PASSWORD = "3443";
     
     /**
      * Interface for handling successful password authentication
